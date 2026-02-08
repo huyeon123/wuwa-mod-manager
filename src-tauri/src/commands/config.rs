@@ -38,8 +38,8 @@ pub async fn launch_xxmi(app_handle: tauri::AppHandle) -> Result<bool, String> {
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("cmd")
-            .args(["/C", "start", "", &launcher_path])
-            .creation_flags(0x08000000) // CREATE_NO_WINDOW - hide cmd window
+            .args(["/C", "start", "", &launcher_path, "--nogui", "--xxmi", "WWMI"])
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
             .spawn()
             .map_err(|e| format!("런처 실행 실패: {}", e))?;
     }
@@ -47,6 +47,7 @@ pub async fn launch_xxmi(app_handle: tauri::AppHandle) -> Result<bool, String> {
     #[cfg(not(target_os = "windows"))]
     {
         std::process::Command::new(&launcher_path)
+            .args(["--nogui", "--xxmi", "WWMI"])
             .spawn()
             .map_err(|e| format!("런처 실행 실패: {}", e))?;
     }
