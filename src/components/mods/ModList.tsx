@@ -7,6 +7,7 @@ interface ModListProps {
   onSelectMod: (mod: Mod) => void;
   onToggleMod: (mod: Mod) => void;
   characterName: string;
+  onBack: () => void;
 }
 
 export function ModList({
@@ -15,10 +16,20 @@ export function ModList({
   onSelectMod,
   onToggleMod,
   characterName,
+  onBack,
 }: ModListProps) {
   return (
     <main className="flex-1 overflow-y-auto p-6">
       <div className="mb-4">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-sm text-text-muted hover:text-neon transition-colors duration-200 mb-2"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+          캐릭터 목록
+        </button>
         <h1 className="text-xl font-bold text-text-primary">{characterName}</h1>
         <p className="text-sm text-text-muted">
           {mods.length > 0
