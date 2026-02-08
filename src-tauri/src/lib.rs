@@ -17,6 +17,8 @@ pub fn run() {
             commands::mods::get_mod_counts,
             commands::config::get_config,
             commands::config::set_mods_path,
+            commands::config::set_xxmi_launcher_path,
+            commands::config::launch_xxmi,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

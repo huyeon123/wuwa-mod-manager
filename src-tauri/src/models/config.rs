@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct AppConfig {
     pub mods_path: Option<String>,
     pub game_path: Option<String>,
+    pub xxmi_launcher_path: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -12,6 +13,7 @@ impl Default for AppConfig {
         Self {
             mods_path: None,
             game_path: None,
+            xxmi_launcher_path: None,
         }
     }
 }

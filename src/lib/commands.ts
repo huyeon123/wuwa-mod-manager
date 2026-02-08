@@ -52,3 +52,11 @@ export async function setModsPath(path: string): Promise<boolean> {
 export async function getModCounts(modsPath: string): Promise<Record<string, [number, number]>> {
   return invoke<Record<string, [number, number]>>("get_mod_counts", { modsPath });
 }
+
+export async function setXxmiLauncherPath(path: string): Promise<boolean> {
+  return invoke<boolean>("set_xxmi_launcher_path", { path });
+}
+
+export async function launchXxmi(): Promise<boolean> {
+  return invoke<boolean>("launch_xxmi");
+}

@@ -38,6 +38,8 @@ interface SidebarProps {
   selectedCharacterId: string | null;
   view: "characters" | "mods";
   onSelectCharacter: (id: string) => void;
+  onLaunchXxmi?: () => void;
+  xxmiLauncherPath?: string | null;
 }
 
 export function Sidebar({
@@ -47,6 +49,8 @@ export function Sidebar({
   selectedCharacterId,
   view,
   onSelectCharacter,
+  onLaunchXxmi,
+  xxmiLauncherPath,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -117,7 +121,25 @@ export function Sidebar({
           </div>
         ))}
       </nav>
-      <div className={`mt-auto ${collapsed ? "" : "px-3"}`}>
+      <div className={`mt-auto space-y-2 ${collapsed ? "" : "px-3"}`}>
+        {xxmiLauncherPath && onLaunchXxmi && (
+          <button
+            onClick={onLaunchXxmi}
+            title={collapsed ? "게임 실행" : undefined}
+            className={`rounded-lg flex items-center transition-all duration-200 w-full bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500/20 ${
+              collapsed
+                ? "w-11 h-11 justify-center"
+                : "h-11 px-3 gap-3 justify-start"
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />
+            </svg>
+            {!collapsed && (
+              <span className="text-sm font-medium">게임 실행</span>
+            )}
+          </button>
+        )}
         <button
           onClick={() => setCollapsed(!collapsed)}
           title={collapsed ? "펼치기" : "접기"}

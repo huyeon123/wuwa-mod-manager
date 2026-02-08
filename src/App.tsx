@@ -18,6 +18,8 @@ import {
   deleteMod,
   setModsPath,
   getModCounts,
+  setXxmiLauncherPath,
+  launchXxmi,
 } from "./lib/commands";
 
 type View = "characters" | "mods";
@@ -30,6 +32,7 @@ export function App() {
   const [mods, setMods] = useState<Mod[]>([]);
   const [selectedMod, setSelectedMod] = useState<Mod | null>(null);
   const [modsPath, setModsPathState] = useState<string | null>(null);
+  const [xxmiLauncherPath, setXxmiLauncherPathState] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [modCounts, setModCounts] = useState<Record<string, [number, number]>>({});
@@ -40,6 +43,9 @@ export function App() {
       .then((config) => {
         if (config.modsPath) {
           setModsPathState(config.modsPath);
+        }
+        if (config.xxmiLauncherPath) {
+          setXxmiLauncherPathState(config.xxmiLauncherPath);
         }
       })
       .catch((err) => {
@@ -247,6 +253,31 @@ export function App() {
     }
   }, []);
 
+  const handleSelectXxmiLauncherPath = useCallback(async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "실행 파일", extensions: ["exe"] }],
+        directory: false,
+        title: "XXMI Launcher를 선택하세요",
+      });
+      if (selected) {
+        await setXxmiLauncherPath(selected);
+        setXxmiLauncherPathState(selected);
+      }
+    } catch (err) {
+      console.error("Failed to set XXMI launcher path:", err);
+    }
+  }, []);
+
+  const handleLaunchXxmi = useCallback(async () => {
+    try {
+      await launchXxmi();
+    } catch (err) {
+      console.error("Failed to launch XXMI:", err);
+    }
+  }, []);
+
   const renderContent = () => {
     if (activeMenu === "settings") {
       return (
@@ -270,6 +301,25 @@ export function App() {
               </div>
               <p className="text-xs text-text-muted mt-2">
                 WWMI mods 폴더를 선택하세요
+              </p>
+            </div>
+            <div className="p-4 rounded-xl border border-white/10 bg-white/5">
+              <label className="text-sm font-medium text-text-primary block mb-2">
+                XXMI Launcher 경로
+              </label>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-text-secondary truncate">
+                  {xxmiLauncherPath ?? "설정되지 않음"}
+                </div>
+                <button
+                  onClick={handleSelectXxmiLauncherPath}
+                  className="px-4 py-2 rounded-lg bg-neon/10 text-neon border border-neon/30 text-sm font-medium hover:bg-neon/20 transition-colors"
+                >
+                  변경
+                </button>
+              </div>
+              <p className="text-xs text-text-muted mt-2">
+                XXMI Launcher (XXMI Launcher.exe)를 선택하세요
               </p>
             </div>
           </div>
@@ -332,6 +382,8 @@ export function App() {
         selectedCharacterId={selectedCharacterId}
         view={view}
         onSelectCharacter={handleSelectCharacter}
+        onLaunchXxmi={handleLaunchXxmi}
+        xxmiLauncherPath={xxmiLauncherPath}
       />
       {renderContent()}
       {selectedMod && (
