@@ -1,12 +1,12 @@
 [package]
-name = "wwua-mod-manager"
+name = "wuwa-mod-manager"
 version = "0.1.0"
-description = "WWUA Mod Manager - 명조 모드 관리 데스크톱 앱"
+description = "WuWa Mod Manager - 명조 모드 관리 데스크톱 앱"
 authors = ["YoungHun"]
 edition = "2021"
 
 [lib]
-name = "wwua_mod_manager_lib"
+name = "wuwa_mod_manager_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]

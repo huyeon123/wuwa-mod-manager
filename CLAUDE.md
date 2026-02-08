@@ -1,4 +1,4 @@
-# WWUA Mod Manager
+# WuWa Mod Manager
 
 명조(Wuthering Waves) 모드 관리 데스크톱 앱 — Tauri v2 + React + TypeScript
 

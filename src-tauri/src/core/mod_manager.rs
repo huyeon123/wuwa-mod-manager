@@ -319,7 +319,7 @@ pub async fn import_mod(
 
     if source.is_file() && source_path.to_lowercase().ends_with(".zip") {
         // Extract ZIP to temp directory
-        let temp_path = std::env::temp_dir().join(format!("wwua_import_{}", uuid::Uuid::new_v4()));
+        let temp_path = std::env::temp_dir().join(format!("wuwa_import_{}", uuid::Uuid::new_v4()));
         tokio::fs::create_dir_all(&temp_path)
             .await
             .map_err(|e| format!("임시 폴더 생성 실패: {}", e))?;

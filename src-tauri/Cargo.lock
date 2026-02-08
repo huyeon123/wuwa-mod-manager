@@ -4766,10 +4766,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "wwua-mod-manager"
+name = "wuwa-mod-manager"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "dirs",
  "serde",
  "serde_json",
  "tauri",
