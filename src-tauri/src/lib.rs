@@ -19,6 +19,7 @@ pub fn run() {
             commands::config::set_mods_path,
             commands::config::set_xxmi_launcher_path,
             commands::config::launch_xxmi,
+            commands::config::auto_detect_paths,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

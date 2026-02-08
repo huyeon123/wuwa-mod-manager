@@ -8,6 +8,7 @@ import { CharacterGrid } from "./components/characters/CharacterGrid";
 import { ModList } from "./components/mods/ModList";
 import { ModDetailPanel } from "./components/mods/ModDetailPanel";
 import type { Character, Mod } from "./lib/types";
+import { ToastContainer, type ToastData } from "./components/ui/Toast";
 import {
   getCharacters,
   getConfig,
@@ -20,6 +21,7 @@ import {
   getModCounts,
   setXxmiLauncherPath,
   launchXxmi,
+  autoDetectPaths,
 } from "./lib/commands";
 
 type View = "characters" | "mods";
@@ -36,6 +38,21 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [modCounts, setModCounts] = useState<Record<string, [number, number]>>({});
+  const [toasts, setToasts] = useState<ToastData[]>([]);
+
+  const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
+    const id = Date.now().toString();
+    setToasts(prev => [...prev, { id, type, message, showReport }]);
+    if (type !== "error") {
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+      }, 5000);
+    }
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
 
   // Load config on startup
   useEffect(() => {
@@ -46,6 +63,10 @@ export function App() {
         }
         if (config.xxmiLauncherPath) {
           setXxmiLauncherPathState(config.xxmiLauncherPath);
+        }
+        // If no modsPath, redirect to settings
+        if (!config.modsPath) {
+          setActiveMenu("settings");
         }
       })
       .catch((err) => {
@@ -138,9 +159,10 @@ export function App() {
         );
       } catch (err) {
         console.error("Failed to toggle mod:", err);
+        addToast("error", `모드 전환 실패: ${err}`, true);
       }
     },
-    [modsPath, selectedCharacterId, loadMods],
+    [modsPath, selectedCharacterId, loadMods, addToast],
   );
 
   const handleImportModZip = useCallback(async () => {
@@ -158,8 +180,9 @@ export function App() {
       getModCounts(modsPath).then(setModCounts).catch(console.error);
     } catch (err) {
       console.error("Failed to import mod:", err);
+      addToast("error", `모드 가져오기 실패: ${err}`, true);
     }
-  }, [modsPath, selectedCharacterId, loadMods]);
+  }, [modsPath, selectedCharacterId, loadMods, addToast]);
 
   const handleImportModFolder = useCallback(async () => {
     if (!modsPath || !selectedCharacterId) return;
@@ -175,8 +198,9 @@ export function App() {
       getModCounts(modsPath).then(setModCounts).catch(console.error);
     } catch (err) {
       console.error("Failed to import mod:", err);
+      addToast("error", `모드 가져오기 실패: ${err}`, true);
     }
-  }, [modsPath, selectedCharacterId, loadMods]);
+  }, [modsPath, selectedCharacterId, loadMods, addToast]);
 
   const handleDropFiles = useCallback(async (paths: string[]) => {
     if (!modsPath || !selectedCharacterId) return;
@@ -185,11 +209,12 @@ export function App() {
         await importMod(filePath, selectedCharacterId, modsPath);
       } catch (err) {
         console.error("Failed to import dropped mod:", err);
+        addToast("error", `모드 가져오기 실패: ${err}`, true);
       }
     }
     await loadMods(selectedCharacterId);
     getModCounts(modsPath).then(setModCounts).catch(console.error);
-  }, [modsPath, selectedCharacterId, loadMods]);
+  }, [modsPath, selectedCharacterId, loadMods, addToast]);
 
   // Register Tauri drag-drop event listener
   useEffect(() => {
@@ -232,9 +257,10 @@ export function App() {
         getModCounts(modsPath).then(setModCounts).catch(console.error);
       } catch (err) {
         console.error("Failed to delete mod:", err);
+        addToast("error", `모드 삭제 실패: ${err}`, true);
       }
     },
-    [modsPath, selectedCharacterId, loadMods],
+    [modsPath, selectedCharacterId, loadMods, addToast],
   );
 
   const handleSelectModsPath = useCallback(async () => {
@@ -250,8 +276,9 @@ export function App() {
       }
     } catch (err) {
       console.error("Failed to set mods path:", err);
+      addToast("error", `모드 경로 설정 실패: ${err}`, true);
     }
-  }, []);
+  }, [addToast]);
 
   const handleSelectXxmiLauncherPath = useCallback(async () => {
     try {
@@ -267,22 +294,60 @@ export function App() {
       }
     } catch (err) {
       console.error("Failed to set XXMI launcher path:", err);
+      addToast("error", `XXMI 런처 경로 설정 실패: ${err}`, true);
     }
-  }, []);
+  }, [addToast]);
 
   const handleLaunchXxmi = useCallback(async () => {
     try {
       await launchXxmi();
     } catch (err) {
       console.error("Failed to launch XXMI:", err);
+      addToast("error", `게임 실행 실패: ${err}`, true);
     }
-  }, []);
+  }, [addToast]);
+
+  const handleAutoDetect = useCallback(async (target: "mods" | "launcher" | "all" = "all") => {
+    try {
+      const [detectedModsPath, detectedXxmiPath] = await autoDetectPaths();
+
+      const applyMods = (target === "mods" || target === "all") && detectedModsPath;
+      const applyLauncher = (target === "launcher" || target === "all") && detectedXxmiPath;
+
+      if (applyMods) {
+        setModsPathState(detectedModsPath);
+      }
+      if (applyLauncher) {
+        setXxmiLauncherPathState(detectedXxmiPath);
+      }
+
+      if (applyMods || applyLauncher) {
+        const found = [];
+        if (applyMods) found.push("모드 폴더");
+        if (applyLauncher) found.push("XXMI Launcher");
+        addToast("success", `자동 탐지 성공: ${found.join(", ")}을(를) 찾았습니다.`);
+      } else {
+        const targetName = target === "mods" ? "모드 폴더" : target === "launcher" ? "XXMI Launcher" : "경로";
+        addToast("warning", `자동 탐지: ${targetName}를 찾을 수 없습니다. 수동으로 설정해주세요.`);
+      }
+    } catch (err) {
+      console.error("Failed to auto detect paths:", err);
+      addToast("error", `자동 탐지 중 오류가 발생했습니다: ${err}`, true);
+    }
+  }, [addToast]);
 
   const renderContent = () => {
     if (activeMenu === "settings") {
       return (
         <main className="flex-1 overflow-y-auto p-6">
           <h1 className="text-xl font-bold text-text-primary mb-4">설정</h1>
+          {!modsPath && (
+            <div className="mb-4 p-4 rounded-xl border border-neon/30 bg-neon/5">
+              <p className="text-sm text-neon font-medium">
+                처음 사용하시나요? 아래에서 경로를 설정하거나 자동 탐지를 사용하세요.
+              </p>
+            </div>
+          )}
           <div className="space-y-4">
             <div className="p-4 rounded-xl border border-white/10 bg-white/5">
               <label className="text-sm font-medium text-text-primary block mb-2">
@@ -292,6 +357,12 @@ export function App() {
                 <div className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-text-secondary truncate">
                   {modsPath ?? "설정되지 않음"}
                 </div>
+                <button
+                  onClick={() => handleAutoDetect("mods")}
+                  className="px-4 py-2 rounded-lg bg-white/5 text-text-muted border border-white/10 text-sm font-medium hover:bg-white/10 hover:text-text-primary transition-colors"
+                >
+                  자동 탐지
+                </button>
                 <button
                   onClick={handleSelectModsPath}
                   className="px-4 py-2 rounded-lg bg-neon/10 text-neon border border-neon/30 text-sm font-medium hover:bg-neon/20 transition-colors"
@@ -312,6 +383,12 @@ export function App() {
                   {xxmiLauncherPath ?? "설정되지 않음"}
                 </div>
                 <button
+                  onClick={() => handleAutoDetect("launcher")}
+                  className="px-4 py-2 rounded-lg bg-white/5 text-text-muted border border-white/10 text-sm font-medium hover:bg-white/10 hover:text-text-primary transition-colors"
+                >
+                  자동 탐지
+                </button>
+                <button
                   onClick={handleSelectXxmiLauncherPath}
                   className="px-4 py-2 rounded-lg bg-neon/10 text-neon border border-neon/30 text-sm font-medium hover:bg-neon/20 transition-colors"
                 >
@@ -322,25 +399,6 @@ export function App() {
                 XXMI Launcher (XXMI Launcher.exe)를 선택하세요
               </p>
             </div>
-          </div>
-        </main>
-      );
-    }
-
-    if (!modsPath) {
-      return (
-        <main className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center">
-          <div className="text-center space-y-4">
-            <h1 className="text-xl font-bold text-text-primary">모드 폴더를 설정하세요</h1>
-            <p className="text-sm text-text-muted">
-              모드를 관리하려면 먼저 Mods 폴더 경로를 지정해야 합니다.
-            </p>
-            <button
-              onClick={handleSelectModsPath}
-              className="px-6 py-3 rounded-xl bg-neon/10 text-neon border border-neon/30 font-medium hover:bg-neon/20 hover:shadow-[0_0_20px_rgba(53,243,229,0.15)] transition-all duration-200"
-            >
-              폴더 선택
-            </button>
           </div>
         </main>
       );
@@ -374,25 +432,28 @@ export function App() {
   };
 
   return (
-    <AppShell>
-      <Sidebar
-        activeMenu={activeMenu}
-        onMenuSelect={handleMenuSelect}
-        characters={characters}
-        selectedCharacterId={selectedCharacterId}
-        view={view}
-        onSelectCharacter={handleSelectCharacter}
-        onLaunchXxmi={handleLaunchXxmi}
-        xxmiLauncherPath={xxmiLauncherPath}
-      />
-      {renderContent()}
-      {selectedMod && (
-        <ModDetailPanel
-          mod={selectedMod}
-          onToggle={handleToggleMod}
-          onDelete={handleDeleteMod}
+    <>
+      <AppShell>
+        <Sidebar
+          activeMenu={activeMenu}
+          onMenuSelect={handleMenuSelect}
+          characters={characters}
+          selectedCharacterId={selectedCharacterId}
+          view={view}
+          onSelectCharacter={handleSelectCharacter}
+          onLaunchXxmi={handleLaunchXxmi}
+          xxmiLauncherPath={xxmiLauncherPath}
         />
-      )}
-    </AppShell>
+        {renderContent()}
+        {selectedMod && (
+          <ModDetailPanel
+            mod={selectedMod}
+            onToggle={handleToggleMod}
+            onDelete={handleDeleteMod}
+          />
+        )}
+      </AppShell>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+    </>
   );
 }

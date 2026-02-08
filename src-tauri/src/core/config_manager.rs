@@ -79,3 +79,110 @@ pub async fn set_xxmi_launcher_path(
 
     Ok(true)
 }
+
+pub async fn auto_detect_paths() -> Result<(Option<String>, Option<String>), String> {
+    let mut mods_path: Option<String> = None;
+    let mut xxmi_launcher_path: Option<String> = None;
+
+    let home = dirs::home_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let mut launcher_candidates: Vec<String> = Vec::new();
+    let mut mods_candidates: Vec<String> = Vec::new();
+
+    #[cfg(target_os = "windows")]
+    {
+        let appdata = std::env::var("APPDATA").unwrap_or_default();
+        let sep = "\\";
+        launcher_candidates.extend([
+            format!("{}{sep}XXMI Launcher{sep}Resources{sep}Bin{sep}XXMI Launcher.exe", appdata),
+            format!("{}{sep}XXMI Launcher{sep}XXMI Launcher.exe", appdata),
+            format!("{}{sep}Desktop{sep}XXMI Launcher.exe", home),
+            format!("{}{sep}Desktop{sep}3DMigoto{sep}XXMI Launcher.exe", home),
+            format!("{}{sep}3DMigoto{sep}XXMI Launcher.exe", home),
+            "C:\\3DMigoto\\XXMI Launcher.exe".to_string(),
+            "D:\\3DMigoto\\XXMI Launcher.exe".to_string(),
+            format!("{}{sep}Downloads{sep}XXMI Launcher.exe", home),
+            format!("{}{sep}Desktop{sep}WWMI{sep}XXMI Launcher.exe", home),
+            format!("{}{sep}3DMigoto{sep}WWMI{sep}XXMI Launcher.exe", home),
+        ]);
+        mods_candidates.extend([
+            format!("{}{sep}XXMI Launcher{sep}WWMI{sep}Mods", appdata),
+            format!("{}{sep}Desktop{sep}3DMigoto{sep}Mods", home),
+            format!("{}{sep}3DMigoto{sep}Mods", home),
+            "C:\\3DMigoto\\Mods".to_string(),
+            "D:\\3DMigoto\\Mods".to_string(),
+            format!("{}{sep}Desktop{sep}WWMI{sep}Mods", home),
+            format!("{}{sep}3DMigoto{sep}WWMI{sep}Mods", home),
+        ]);
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let app_support = dirs::data_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let sep = "/";
+        launcher_candidates.extend([
+            format!("{}{sep}XXMI Launcher{sep}Resources{sep}Bin{sep}XXMI Launcher", app_support),
+            format!("{}{sep}XXMI Launcher{sep}XXMI Launcher", app_support),
+            format!("{}{sep}Applications{sep}XXMI Launcher.app", home),
+            format!("{}{sep}Desktop{sep}XXMI Launcher", home),
+            format!("{}{sep}Desktop{sep}3DMigoto{sep}XXMI Launcher", home),
+            format!("{}{sep}3DMigoto{sep}XXMI Launcher", home),
+            format!("{}{sep}Downloads{sep}XXMI Launcher", home),
+        ]);
+        mods_candidates.extend([
+            format!("{}{sep}XXMI Launcher{sep}WWMI{sep}Mods", app_support),
+            format!("{}{sep}Desktop{sep}3DMigoto{sep}Mods", home),
+            format!("{}{sep}3DMigoto{sep}Mods", home),
+            format!("{}{sep}Desktop{sep}WWMI{sep}Mods", home),
+        ]);
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let sep = "/";
+        launcher_candidates.extend([
+            format!("{}{sep}.local{sep}share{sep}XXMI Launcher{sep}XXMI Launcher", home),
+            format!("{}{sep}Desktop{sep}XXMI Launcher", home),
+            format!("{}{sep}3DMigoto{sep}XXMI Launcher", home),
+        ]);
+        mods_candidates.extend([
+            format!("{}{sep}.local{sep}share{sep}XXMI Launcher{sep}WWMI{sep}Mods", home),
+            format!("{}{sep}Desktop{sep}3DMigoto{sep}Mods", home),
+            format!("{}{sep}3DMigoto{sep}Mods", home),
+        ]);
+    }
+
+    for p in &launcher_candidates {
+        if std::path::Path::new(p).exists() {
+            xxmi_launcher_path = Some(p.clone());
+            break;
+        }
+    }
+
+    // Try to find Mods folder relative to launcher location
+    if let Some(ref launcher) = xxmi_launcher_path {
+        let launcher_dir = std::path::Path::new(launcher).parent();
+        if let Some(dir) = launcher_dir {
+            let mods_dir = dir.join("Mods");
+            if mods_dir.exists() {
+                mods_path = Some(mods_dir.to_string_lossy().to_string());
+            }
+        }
+    }
+
+    // Also check common Mods folder locations independently
+    if mods_path.is_none() {
+        for p in &mods_candidates {
+            if std::path::Path::new(p).exists() {
+                mods_path = Some(p.clone());
+                break;
+            }
+        }
+    }
+
+    Ok((mods_path, xxmi_launcher_path))
+}

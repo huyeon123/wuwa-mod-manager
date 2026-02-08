@@ -1,5 +1,7 @@
 use crate::core::config_manager;
 use crate::models::AppConfig;
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 
 #[tauri::command]
 pub async fn get_config(app_handle: tauri::AppHandle) -> Result<AppConfig, String> {
@@ -33,9 +35,44 @@ pub async fn launch_xxmi(app_handle: tauri::AppHandle) -> Result<bool, String> {
         return Err(format!("런처를 찾을 수 없습니다: {}", launcher_path));
     }
 
-    std::process::Command::new(&launcher_path)
-        .spawn()
-        .map_err(|e| format!("런처 실행 실패: {}", e))?;
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", &launcher_path])
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW - hide cmd window
+            .spawn()
+            .map_err(|e| format!("런처 실행 실패: {}", e))?;
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::process::Command::new(&launcher_path)
+            .spawn()
+            .map_err(|e| format!("런처 실행 실패: {}", e))?;
+    }
 
     Ok(true)
+}
+
+#[tauri::command]
+pub async fn auto_detect_paths(app_handle: tauri::AppHandle) -> Result<(Option<String>, Option<String>), String> {
+    let (mods_path, xxmi_launcher_path) = config_manager::auto_detect_paths().await?;
+
+    // Save detected paths to config
+    let mut config = config_manager::load_config(&app_handle).await?;
+    let mut changed = false;
+
+    if let Some(ref path) = mods_path {
+        config.mods_path = Some(path.clone());
+        changed = true;
+    }
+    if let Some(ref path) = xxmi_launcher_path {
+        config.xxmi_launcher_path = Some(path.clone());
+        changed = true;
+    }
+    if changed {
+        config_manager::save_config(&config, &app_handle).await?;
+    }
+
+    Ok((mods_path, xxmi_launcher_path))
 }

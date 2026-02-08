@@ -60,3 +60,7 @@ export async function setXxmiLauncherPath(path: string): Promise<boolean> {
 export async function launchXxmi(): Promise<boolean> {
   return invoke<boolean>("launch_xxmi");
 }
+
+export async function autoDetectPaths(): Promise<[string | null, string | null]> {
+  return invoke<[string | null, string | null]>("auto_detect_paths");
+}
