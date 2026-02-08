@@ -25,6 +25,22 @@ export async function disableMod(
   return invoke<boolean>("disable_mod", { modId, characterId, modsPath });
 }
 
+export async function importMod(
+  sourcePath: string,
+  characterId: string,
+  modsPath: string,
+): Promise<Mod> {
+  return invoke<Mod>("import_mod", { sourcePath, characterId, modsPath });
+}
+
+export async function deleteMod(
+  modId: string,
+  characterId: string,
+  modsPath: string,
+): Promise<boolean> {
+  return invoke<boolean>("delete_mod", { modId, characterId, modsPath });
+}
+
 export async function getConfig(): Promise<AppConfig> {
   return invoke<AppConfig>("get_config");
 }
