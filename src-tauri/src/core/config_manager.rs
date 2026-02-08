@@ -86,7 +86,10 @@ pub async fn auto_detect_paths() -> Result<(Option<String>, Option<String>), Str
 
     // Common XXMI Launcher locations
     let home = std::env::var("USERPROFILE").unwrap_or_default();
+    let appdata = std::env::var("APPDATA").unwrap_or_default();
     let common_paths = vec![
+        format!("{}\\XXMI Launcher\\Resources\\Bin\\XXMI Launcher.exe", appdata),
+        format!("{}\\XXMI Launcher\\XXMI Launcher.exe", appdata),
         format!("{}\\Desktop\\XXMI Launcher.exe", home),
         format!("{}\\Desktop\\3DMigoto\\XXMI Launcher.exe", home),
         format!("{}\\3DMigoto\\XXMI Launcher.exe", home),
@@ -118,6 +121,7 @@ pub async fn auto_detect_paths() -> Result<(Option<String>, Option<String>), Str
     // Also check common Mods folder locations independently
     if mods_path.is_none() {
         let mods_paths = vec![
+            format!("{}\\XXMI Launcher\\WWMI\\Mods", appdata),
             format!("{}\\Desktop\\3DMigoto\\Mods", home),
             format!("{}\\3DMigoto\\Mods", home),
             "C:\\3DMigoto\\Mods".to_string(),
