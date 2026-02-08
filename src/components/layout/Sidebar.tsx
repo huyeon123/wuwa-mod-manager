@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 type MenuId = "mods" | "settings";
 
 interface MenuItem {
@@ -34,29 +36,61 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeMenu, onMenuSelect }: SidebarProps) {
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
-    <aside className="w-16 flex-shrink-0 border-r border-border bg-sidebar flex flex-col items-center py-4 gap-2">
-      <div className="mb-4">
+    <aside
+      className={`flex-shrink-0 border-r border-border bg-sidebar flex flex-col py-4 transition-all duration-200 ${
+        collapsed ? "w-16 items-center" : "w-48"
+      }`}
+    >
+      <div className={`mb-4 ${collapsed ? "" : "px-4"}`}>
         <div className="w-9 h-9 rounded-lg bg-neon/20 flex items-center justify-center text-neon font-bold text-sm">
           W
         </div>
       </div>
-      <nav className="flex flex-col gap-1">
+      <nav className={`flex flex-col gap-1 flex-1 ${collapsed ? "" : "px-3"}`}>
         {MENU_ITEMS.map((item) => (
           <button
             key={item.id}
             onClick={() => onMenuSelect(item.id)}
-            title={item.label}
-            className={`w-11 h-11 rounded-lg flex items-center justify-center transition-all duration-200 ${
+            title={collapsed ? item.label : undefined}
+            className={`rounded-lg flex items-center transition-all duration-200 ${
+              collapsed
+                ? "w-11 h-11 justify-center"
+                : "h-11 px-3 gap-3 justify-start"
+            } ${
               activeMenu === item.id
                 ? "bg-neon/15 text-neon"
                 : "text-text-muted hover:bg-background-hover hover:text-text-primary"
             }`}
           >
             {item.icon}
+            {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
           </button>
         ))}
       </nav>
+      <div className={`mt-auto ${collapsed ? "" : "px-3"}`}>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          title={collapsed ? "펼치기" : "접기"}
+          className="w-full h-11 rounded-lg flex items-center justify-center text-text-muted hover:bg-background-hover hover:text-text-primary transition-all duration-200"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            {collapsed ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            )}
+          </svg>
+        </button>
+      </div>
     </aside>
   );
 }
