@@ -352,6 +352,48 @@ pub async fn delete_mod(
     Err(format!("모드를 찾을 수 없습니다: {}", mod_id))
 }
 
+pub async fn get_mod_counts(
+    mods_path: &str,
+) -> Result<std::collections::HashMap<String, (u32, u32)>, String> {
+    let mut counts = std::collections::HashMap::new();
+    let base_path = Path::new(mods_path).join("mod_manager");
+
+    if !base_path.exists() {
+        return Ok(counts);
+    }
+
+    let mut entries = tokio::fs::read_dir(&base_path)
+        .await
+        .map_err(|e| format!("mod_manager 폴더 읽기 실패: {}", e))?;
+
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        if entry.path().is_dir() {
+            let character_id = entry.file_name().to_string_lossy().to_string();
+            let mut enabled: u32 = 0;
+            let mut total: u32 = 0;
+
+            let mut sub_entries = match tokio::fs::read_dir(entry.path()).await {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+
+            while let Ok(Some(sub_entry)) = sub_entries.next_entry().await {
+                if sub_entry.path().is_dir() {
+                    total += 1;
+                    let name = sub_entry.file_name().to_string_lossy().to_string();
+                    if !name.starts_with("DISABLED_") {
+                        enabled += 1;
+                    }
+                }
+            }
+
+            counts.insert(character_id, (enabled, total));
+        }
+    }
+
+    Ok(counts)
+}
+
 async fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
     tokio::fs::create_dir_all(dst)
         .await

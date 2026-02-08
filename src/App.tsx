@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { AppShell } from "./components/layout/AppShell";
 import { Sidebar } from "./components/layout/Sidebar";
 import type { MenuId } from "./components/layout/Sidebar";
@@ -16,6 +17,7 @@ import {
   importMod,
   deleteMod,
   setModsPath,
+  getModCounts,
 } from "./lib/commands";
 
 type View = "characters" | "mods";
@@ -29,6 +31,8 @@ export function App() {
   const [selectedMod, setSelectedMod] = useState<Mod | null>(null);
   const [modsPath, setModsPathState] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [modCounts, setModCounts] = useState<Record<string, [number, number]>>({});
 
   // Load config on startup
   useEffect(() => {
@@ -51,6 +55,14 @@ export function App() {
         console.error("Failed to load characters:", err);
       });
   }, []);
+
+  // Load mod counts when modsPath changes
+  useEffect(() => {
+    if (!modsPath) return;
+    getModCounts(modsPath)
+      .then(setModCounts)
+      .catch((err) => console.error("Failed to load mod counts:", err));
+  }, [modsPath]);
 
   const selectedCharacter = characters.find((c) => c.id === selectedCharacterId);
 
@@ -113,6 +125,7 @@ export function App() {
           await enableMod(mod.id, selectedCharacterId, modsPath);
         }
         await loadMods(selectedCharacterId);
+        getModCounts(modsPath).then(setModCounts).catch(console.error);
         // Update selectedMod if it was the toggled one
         setSelectedMod((prev) =>
           prev?.id === mod.id ? { ...prev, enabled: !prev.enabled } : prev,
@@ -136,6 +149,7 @@ export function App() {
       if (!selected) return;
       await importMod(selected, selectedCharacterId, modsPath);
       await loadMods(selectedCharacterId);
+      getModCounts(modsPath).then(setModCounts).catch(console.error);
     } catch (err) {
       console.error("Failed to import mod:", err);
     }
@@ -152,10 +166,55 @@ export function App() {
       if (!selected) return;
       await importMod(selected, selectedCharacterId, modsPath);
       await loadMods(selectedCharacterId);
+      getModCounts(modsPath).then(setModCounts).catch(console.error);
     } catch (err) {
       console.error("Failed to import mod:", err);
     }
   }, [modsPath, selectedCharacterId, loadMods]);
+
+  const handleDropFiles = useCallback(async (paths: string[]) => {
+    if (!modsPath || !selectedCharacterId) return;
+    for (const filePath of paths) {
+      try {
+        await importMod(filePath, selectedCharacterId, modsPath);
+      } catch (err) {
+        console.error("Failed to import dropped mod:", err);
+      }
+    }
+    await loadMods(selectedCharacterId);
+    getModCounts(modsPath).then(setModCounts).catch(console.error);
+  }, [modsPath, selectedCharacterId, loadMods]);
+
+  // Register Tauri drag-drop event listener
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    try {
+      getCurrentWebview().onDragDropEvent((event) => {
+        if (event.payload.type === "enter" || event.payload.type === "over") {
+          setIsDragging(true);
+        } else if (event.payload.type === "leave") {
+          setIsDragging(false);
+        } else if (event.payload.type === "drop") {
+          setIsDragging(false);
+          if (view === "mods" && selectedCharacterId && modsPath) {
+            const paths = event.payload.paths;
+            handleDropFiles(paths);
+          }
+        }
+      }).then((fn) => {
+        unlisten = fn;
+      }).catch((err) => {
+        console.error("Failed to register drag-drop listener:", err);
+      });
+    } catch (err) {
+      console.error("Failed to get webview:", err);
+    }
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [view, selectedCharacterId, modsPath, handleDropFiles]);
 
   const handleDeleteMod = useCallback(
     async (mod: Mod) => {
@@ -164,6 +223,7 @@ export function App() {
         await deleteMod(mod.id, selectedCharacterId, modsPath);
         setSelectedMod(null);
         await loadMods(selectedCharacterId);
+        getModCounts(modsPath).then(setModCounts).catch(console.error);
       } catch (err) {
         console.error("Failed to delete mod:", err);
       }
@@ -241,6 +301,7 @@ export function App() {
         <CharacterGrid
           characters={characters}
           onSelect={handleSelectCharacter}
+          modCounts={modCounts}
         />
       );
     }
@@ -256,6 +317,8 @@ export function App() {
         characterName={selectedCharacter?.name ?? ""}
         onBack={handleBack}
         loading={loading}
+        isDragging={isDragging}
+        onDropFiles={handleDropFiles}
       />
     );
   };

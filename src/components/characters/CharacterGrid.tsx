@@ -4,6 +4,7 @@ import type { Character } from "@/lib/types";
 interface CharacterGridProps {
   characters: Character[];
   onSelect: (id: string) => void;
+  modCounts: Record<string, [number, number]>;
 }
 
 const ELEMENT_ORDER = ["기류", "용융", "응결", "인멸", "전도", "회절"] as const;
@@ -19,7 +20,7 @@ const ELEMENT_LABELS: Record<string, string> = {
 
 type SortKey = "name" | "element";
 
-export function CharacterGrid({ characters, onSelect }: CharacterGridProps) {
+export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGridProps) {
   const [sortBy, setSortBy] = useState<SortKey>("element");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -132,6 +133,10 @@ export function CharacterGrid({ characters, onSelect }: CharacterGridProps) {
                   onClick={() => onSelect(character.id)}
                   className="group relative flex flex-col items-center gap-2 p-4 rounded-xl border border-white/10 bg-white/5 hover:border-neon/40 hover:bg-neon/5 hover:shadow-[0_0_20px_rgba(53,243,229,0.1)] transition-all duration-200 cursor-pointer"
                 >
+                  <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-background-card border border-white/10 text-[11px] font-medium leading-none z-10">
+                    <span className="text-neon">{modCounts[character.id]?.[0] ?? 0}</span>
+                    <span className="text-text-muted">/{modCounts[character.id]?.[1] ?? 0}</span>
+                  </span>
                   <div className="w-16 h-16 rounded-full bg-background-card border border-white/10 overflow-hidden group-hover:border-neon/30 transition-colors duration-200">
                     <img
                       src={character.thumbnail}
@@ -154,7 +159,7 @@ export function CharacterGrid({ characters, onSelect }: CharacterGridProps) {
                     <img
                       src={`/elements/ic_${character.element}.png`}
                       alt={character.element}
-                      className="absolute top-2 right-2 w-5 h-5"
+                      className="absolute bottom-2 right-2 w-5 h-5"
                     />
                   )}
                 </button>
