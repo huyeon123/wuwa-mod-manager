@@ -46,7 +46,6 @@ export function App() {
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "downloading" | "ready" | "latest" | "error">("idle");
   const [updateProgress, setUpdateProgress] = useState(0);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
-  const [updateError, setUpdateError] = useState<string | null>(null);
 
   const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
     const id = Date.now().toString();
@@ -347,7 +346,6 @@ export function App() {
 
   const handleCheckUpdate = useCallback(async () => {
     setUpdateStatus("checking");
-    setUpdateError(null);
     try {
       const update = await check();
       if (update?.available) {
@@ -378,7 +376,6 @@ export function App() {
       }
     } catch (err) {
       console.error("Update check failed:", err);
-      setUpdateError(String(err));
       setUpdateStatus("error");
     }
   }, []);
