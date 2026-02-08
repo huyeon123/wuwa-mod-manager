@@ -20,6 +20,12 @@
     "fs:allow-copy-file",
     "core:image:default",
     "core:image:allow-from-bytes",
-    "core:image:allow-from-path"
+    "core:image:allow-from-path",
+    "updater:default",
+    "updater:allow-check",
+    "updater:allow-download",
+    "updater:allow-install",
+    "process:allow-restart",
+    "process:allow-exit"
   ]
 }

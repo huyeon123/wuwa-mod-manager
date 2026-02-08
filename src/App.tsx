@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getVersion } from "@tauri-apps/api/app";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { AppShell } from "./components/layout/AppShell";
 import { Sidebar } from "./components/layout/Sidebar";
 import type { MenuId } from "./components/layout/Sidebar";
@@ -41,6 +43,10 @@ export function App() {
   const [modCounts, setModCounts] = useState<Record<string, [number, number]>>({});
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [appVersion, setAppVersion] = useState<string>("");
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "downloading" | "ready" | "latest" | "error">("idle");
+  const [updateProgress, setUpdateProgress] = useState(0);
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
     const id = Date.now().toString();
@@ -339,6 +345,44 @@ export function App() {
     }
   }, [addToast]);
 
+  const handleCheckUpdate = useCallback(async () => {
+    setUpdateStatus("checking");
+    setUpdateError(null);
+    try {
+      const update = await check();
+      if (update?.available) {
+        setUpdateVersion(update.version);
+        setUpdateStatus("downloading");
+        setUpdateProgress(0);
+
+        let contentLength = 0;
+        await update.downloadAndInstall((event) => {
+          switch (event.event) {
+            case "Started":
+              contentLength = event.data.contentLength ?? 0;
+              break;
+            case "Progress":
+              if (contentLength > 0) {
+                setUpdateProgress(Math.round(((event.data.chunkLength ?? 0) / contentLength) * 100));
+              }
+              break;
+            case "Finished":
+              break;
+          }
+        });
+
+        setUpdateStatus("ready");
+      } else {
+        setUpdateStatus("latest");
+        setTimeout(() => setUpdateStatus("idle"), 3000);
+      }
+    } catch (err) {
+      console.error("Update check failed:", err);
+      setUpdateError(String(err));
+      setUpdateStatus("error");
+    }
+  }, []);
+
   const renderContent = () => {
     if (activeMenu === "settings") {
       return (
@@ -403,13 +447,45 @@ export function App() {
               </p>
             </div>
             <div className="p-4 rounded-xl border border-white/10 bg-white/5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-3">
                 <div>
                   <p className="text-sm font-medium text-text-primary">앱 버전</p>
                   <p className="text-xs text-text-muted mt-1">WuWa Mod Manager</p>
                 </div>
                 <span className="text-sm text-text-secondary font-mono">v{appVersion}</span>
               </div>
+              <div className="flex items-center gap-3">
+                {updateStatus === "ready" ? (
+                  <button
+                    onClick={() => relaunch()}
+                    className="flex-1 px-4 py-2 rounded-lg bg-green-500/10 text-green-400 border border-green-500/30 text-sm font-medium hover:bg-green-500/20 transition-colors"
+                  >
+                    재시작하여 업데이트 적용
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleCheckUpdate}
+                    disabled={updateStatus === "checking" || updateStatus === "downloading"}
+                    className="flex-1 px-4 py-2 rounded-lg bg-neon/10 text-neon border border-neon/30 text-sm font-medium hover:bg-neon/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {updateStatus === "checking" ? "확인 중..." :
+                     updateStatus === "downloading" ? `다운로드 중... ${updateProgress}%` :
+                     "업데이트 확인"}
+                  </button>
+                )}
+              </div>
+              {updateStatus === "latest" && (
+                <p className="text-xs text-green-400 mt-2">최신 버전입니다.</p>
+              )}
+              {updateStatus === "downloading" && updateVersion && (
+                <p className="text-xs text-neon mt-2">v{updateVersion} 다운로드 중...</p>
+              )}
+              {updateStatus === "ready" && updateVersion && (
+                <p className="text-xs text-green-400 mt-2">v{updateVersion} 업데이트가 준비되었습니다. 재시작하면 적용됩니다.</p>
+              )}
+              {updateStatus === "error" && (
+                <p className="text-xs text-red-400 mt-2">업데이트 확인 실패: {updateError}</p>
+              )}
             </div>
           </div>
         </main>
