@@ -12,6 +12,8 @@ pub fn run() {
             commands::mods::get_mods,
             commands::mods::enable_mod,
             commands::mods::disable_mod,
+            commands::mods::import_mod,
+            commands::mods::delete_mod,
             commands::config::get_config,
             commands::config::set_mods_path,
         ])

@@ -1,11 +1,13 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Mod } from "@/lib/types";
 
 interface ModDetailPanelProps {
   mod: Mod | null;
   onToggle: (mod: Mod) => void;
+  onDelete: (mod: Mod) => void;
 }
 
-export function ModDetailPanel({ mod, onToggle }: ModDetailPanelProps) {
+export function ModDetailPanel({ mod, onToggle, onDelete }: ModDetailPanelProps) {
   if (!mod) {
     return (
       <aside className="w-80 flex-shrink-0 border-l border-border bg-sidebar p-6 flex items-center justify-center">
@@ -18,7 +20,15 @@ export function ModDetailPanel({ mod, onToggle }: ModDetailPanelProps) {
     <aside className="w-80 flex-shrink-0 border-l border-border bg-sidebar overflow-y-auto">
       {/* Preview */}
       <div className="aspect-video w-full bg-background-card flex items-center justify-center text-text-muted">
-        No Preview
+        {mod.preview && mod.preview.length > 0 ? (
+          <img
+            src={convertFileSrc(mod.preview[0])}
+            alt={mod.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          "No Preview"
+        )}
       </div>
 
       <div className="p-4 space-y-4">
@@ -39,26 +49,26 @@ export function ModDetailPanel({ mod, onToggle }: ModDetailPanelProps) {
               : "bg-text-muted/10 text-text-secondary border border-white/10 hover:bg-white/10"
           }`}
         >
-          {mod.enabled ? "Enabled" : "Disabled"}
+          {mod.enabled ? "활성화됨" : "비활성화됨"}
         </button>
 
         {/* Details */}
         <div className="space-y-3 text-sm">
           {mod.version && (
             <div className="flex justify-between">
-              <span className="text-text-muted">Version</span>
+              <span className="text-text-muted">버전</span>
               <span className="text-text-secondary">{mod.version}</span>
             </div>
           )}
           {mod.description && (
             <div>
-              <p className="text-text-muted mb-1">Description</p>
+              <p className="text-text-muted mb-1">설명</p>
               <p className="text-text-secondary">{mod.description}</p>
             </div>
           )}
           {mod.tags && mod.tags.length > 0 && (
             <div>
-              <p className="text-text-muted mb-1">Tags</p>
+              <p className="text-text-muted mb-1">태그</p>
               <div className="flex flex-wrap gap-1">
                 {mod.tags.map((tag) => (
                   <span
@@ -71,6 +81,22 @@ export function ModDetailPanel({ mod, onToggle }: ModDetailPanelProps) {
               </div>
             </div>
           )}
+          <div className="flex justify-between">
+            <span className="text-text-muted">경로</span>
+            <span className="text-text-secondary truncate max-w-[180px]" title={mod.path}>
+              {mod.path.split(/[/\\]/).pop()}
+            </span>
+          </div>
+        </div>
+
+        {/* Delete Button */}
+        <div className="pt-2 border-t border-white/10">
+          <button
+            onClick={() => onDelete(mod)}
+            className="w-full py-2 rounded-lg text-sm font-medium text-red-400 border border-red-400/20 bg-red-400/5 hover:bg-red-400/10 transition-colors"
+          >
+            모드 삭제
+          </button>
         </div>
       </div>
     </aside>

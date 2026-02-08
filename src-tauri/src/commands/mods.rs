@@ -26,3 +26,21 @@ pub async fn disable_mod(
 ) -> Result<bool, String> {
     mod_manager::disable_mod(&mod_id, &character_id, &mods_path).await
 }
+
+#[tauri::command]
+pub async fn import_mod(
+    source_path: String,
+    character_id: String,
+    mods_path: String,
+) -> Result<GameMod, String> {
+    mod_manager::import_mod(&source_path, &character_id, &mods_path).await
+}
+
+#[tauri::command]
+pub async fn delete_mod(
+    mod_id: String,
+    character_id: String,
+    mods_path: String,
+) -> Result<bool, String> {
+    mod_manager::delete_mod(&mod_id, &character_id, &mods_path).await
+}

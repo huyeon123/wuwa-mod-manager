@@ -1,3 +1,4 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Mod } from "@/lib/types";
 
 interface ModCardProps {
@@ -19,9 +20,17 @@ export function ModCard({ mod, isSelected, onSelect, onToggle }: ModCardProps) {
     >
       {/* Preview Image */}
       <div className="aspect-[3/4] w-full rounded-lg bg-background-card mb-3 overflow-hidden">
-        <div className="w-full h-full flex items-center justify-center text-text-muted text-sm">
-          No Preview
-        </div>
+        {mod.preview && mod.preview.length > 0 ? (
+          <img
+            src={convertFileSrc(mod.preview[0])}
+            alt={mod.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-text-muted text-sm">
+            No Preview
+          </div>
+        )}
       </div>
 
       {/* Info */}
