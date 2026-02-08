@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getVersion } from "@tauri-apps/api/app";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { AppShell } from "./components/layout/AppShell";
 import { Sidebar } from "./components/layout/Sidebar";
 import type { MenuId } from "./components/layout/Sidebar";
@@ -41,6 +43,10 @@ export function App() {
   const [modCounts, setModCounts] = useState<Record<string, [number, number]>>({});
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [appVersion, setAppVersion] = useState<string>("");
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "downloading" | "ready" | "latest" | "error">("idle");
+  const [updateProgress, setUpdateProgress] = useState(0);
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
     const id = Date.now().toString();
@@ -339,6 +345,44 @@ export function App() {
     }
   }, [addToast]);
 
+  const handleCheckUpdate = useCallback(async () => {
+    setUpdateStatus("checking");
+    setUpdateError(null);
+    try {
+      const update = await check();
+      if (update?.available) {
+        setUpdateVersion(update.version);
+        setUpdateStatus("downloading");
+        setUpdateProgress(0);
+
+        let contentLength = 0;
+        await update.downloadAndInstall((event) => {
+          switch (event.event) {
+            case "Started":
+              contentLength = event.data.contentLength ?? 0;
+              break;
+            case "Progress":
+              if (contentLength > 0) {
+                setUpdateProgress(Math.round(((event.data.chunkLength ?? 0) / contentLength) * 100));
+              }
+              break;
+            case "Finished":
+              break;
+          }
+        });
+
+        setUpdateStatus("ready");
+      } else {
+        setUpdateStatus("latest");
+        setTimeout(() => setUpdateStatus("idle"), 3000);
+      }
+    } catch (err) {
+      console.error("Update check failed:", err);
+      setUpdateError(String(err));
+      setUpdateStatus("error");
+    }
+  }, []);
+
   const renderContent = () => {
     if (activeMenu === "settings") {
       return (
@@ -406,9 +450,35 @@ export function App() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-text-primary">앱 버전</p>
-                  <p className="text-xs text-text-muted mt-1">WuWa Mod Manager</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-text-muted font-mono">v{appVersion}</span>
+                    {updateStatus === "ready" ? (
+                      <button
+                        onClick={() => relaunch()}
+                        className="text-xs text-green-400 hover:text-green-300 transition-colors"
+                      >
+                        재시작하여 적용 (v{updateVersion})
+                      </button>
+                    ) : updateStatus === "latest" ? (
+                      <span className="text-xs text-green-400">최신 버전</span>
+                    ) : updateStatus === "error" ? (
+                      <span className="text-xs text-red-400">확인 실패</span>
+                    ) : updateStatus === "checking" ? (
+                      <span className="text-xs text-text-muted">확인 중...</span>
+                    ) : updateStatus === "downloading" ? (
+                      <span className="text-xs text-neon">다운로드 중 {updateProgress}%</span>
+                    ) : null}
+                  </div>
                 </div>
-                <span className="text-sm text-text-secondary font-mono">v{appVersion}</span>
+                {updateStatus !== "ready" && (
+                  <button
+                    onClick={handleCheckUpdate}
+                    disabled={updateStatus === "checking" || updateStatus === "downloading"}
+                    className="px-3 py-1.5 rounded-lg bg-white/5 text-text-muted border border-white/10 text-xs font-medium hover:bg-white/10 hover:text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    업데이트 확인
+                  </button>
+                )}
               </div>
             </div>
           </div>
