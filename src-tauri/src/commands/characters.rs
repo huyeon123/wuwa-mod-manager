@@ -57,9 +57,9 @@ pub async fn get_characters() -> Result<Vec<Character>, String> {
         c("파수인", "Shorekeeper", Some("회절")),
         c("페비", "Phoebe", Some("회절")),
         // 바이크
-        item("바이크", "Bike", "바이크"),
+        item("바이크", "Bike", "기타"),
         // 글라이더
-        item("글라이더", "Glider", "글라이더"),
+        item("글라이더", "Glider", "기타"),
         // 기타
         item("기타", "Others", "기타"),
     ];
@@ -85,7 +85,7 @@ fn protagonist(name: &str, name_en: &str) -> Character {
         id: name.to_string(),
         name: name.to_string(),
         name_en: name_en.to_string(),
-        category: "주인공".to_string(),
+        category: "방랑자".to_string(),
         element: None,
         rarity: None,
         thumbnail: format!("/characters/char_{}.png", name),

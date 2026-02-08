@@ -66,12 +66,10 @@ export function Sidebar({
   );
 
   // Group filtered characters by category
-  const CATEGORY_ORDER = ["주인공", "캐릭터", "바이크", "글라이더", "기타"] as const;
+  const CATEGORY_ORDER = ["방랑자", "캐릭터", "기타"] as const;
   const CATEGORY_LABELS: Record<string, string> = {
-    주인공: "Protagonist",
+    방랑자: "Rover",
     캐릭터: "Characters",
-    바이크: "Bike",
-    글라이더: "Glider",
     기타: "Others",
   };
 

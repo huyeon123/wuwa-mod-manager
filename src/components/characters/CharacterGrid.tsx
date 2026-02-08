@@ -18,13 +18,11 @@ const ELEMENT_LABELS: Record<string, string> = {
   회절: "Spectro",
 };
 
-const CATEGORY_ORDER = ["주인공", "캐릭터", "바이크", "글라이더", "기타"] as const;
+const CATEGORY_ORDER = ["방랑자", "캐릭터", "기타"] as const;
 
 const CATEGORY_LABELS: Record<string, string> = {
-  주인공: "Protagonist",
+  방랑자: "Rover",
   캐릭터: "Characters",
-  바이크: "Bike",
-  글라이더: "Glider",
   기타: "Others",
 };
 
@@ -50,8 +48,9 @@ export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGrid
       return [{ element: null, label: null, characters: sorted }];
     }
 
-    // 1. 주인공 그룹
-    const protagonists = filtered.filter(c => c.category === "주인공");
+    // 1. 방랑자 그룹
+    const rovers = filtered.filter(c => c.category === "방랑자")
+      .sort((a, b) => a.name.localeCompare(b.name, "ko"));
 
     // 2. 캐릭터 - 속성별 그룹 (기존 로직)
     const elementGroups = ELEMENT_ORDER.map(element => ({
@@ -61,19 +60,15 @@ export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGrid
         .sort((a, b) => a.name.localeCompare(b.name, "ko")),
     })).filter(g => g.characters.length > 0);
 
-    // 3. 나머지 카테고리
-    const otherCategories = ["바이크", "글라이더", "기타"].map(cat => ({
-      element: cat,
-      label: CATEGORY_LABELS[cat],
-      characters: filtered.filter(c => c.category === cat)
-        .sort((a, b) => a.name.localeCompare(b.name, "ko")),
-    })).filter(g => g.characters.length > 0);
+    // 3. 기타 카테고리
+    const others = filtered.filter(c => c.category === "기타")
+      .sort((a, b) => a.name.localeCompare(b.name, "ko"));
 
     // 합치기
     return [
-      ...(protagonists.length > 0 ? [{ element: "주인공", label: "Protagonist", characters: protagonists }] : []),
+      ...(rovers.length > 0 ? [{ element: "방랑자", label: "Rover", characters: rovers }] : []),
       ...elementGroups,
-      ...otherCategories,
+      ...(others.length > 0 ? [{ element: "기타", label: "Others", characters: others }] : []),
     ];
   }, [filtered, sortBy]);
 
