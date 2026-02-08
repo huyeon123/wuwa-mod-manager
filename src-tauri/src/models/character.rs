@@ -6,6 +6,7 @@ pub struct Character {
     pub id: String,
     pub name: String,
     pub name_en: String,
+    pub category: String,
     pub element: Option<String>,
     pub rarity: Option<u8>,
     pub thumbnail: String,
