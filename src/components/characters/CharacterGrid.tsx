@@ -18,14 +18,6 @@ const ELEMENT_LABELS: Record<string, string> = {
   회절: "Spectro",
 };
 
-const CATEGORY_ORDER = ["방랑자", "캐릭터", "기타"] as const;
-
-const CATEGORY_LABELS: Record<string, string> = {
-  방랑자: "Rover",
-  캐릭터: "Characters",
-  기타: "Others",
-};
-
 type SortKey = "name" | "element";
 
 export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGridProps) {

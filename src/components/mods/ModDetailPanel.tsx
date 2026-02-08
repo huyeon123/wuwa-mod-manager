@@ -50,7 +50,7 @@ export function ModDetailPanel({ mod, onToggle, onDelete }: ModDetailPanelProps)
       >
         {mod.preview && mod.preview.length > 0 ? (
           <img
-            src={convertFileSrc(mod.preview[0])}
+            src={convertFileSrc(mod.preview[0]!)}
             alt={mod.name}
             className="w-full h-full object-cover"
           />

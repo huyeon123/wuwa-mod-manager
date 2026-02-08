@@ -27,7 +27,7 @@ export function ModList({
   onBack,
   loading,
   isDragging,
-  onDropFiles,
+  onDropFiles: _onDropFiles,
 }: ModListProps) {
   const [showImportMenu, setShowImportMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);

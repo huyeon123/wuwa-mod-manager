@@ -22,7 +22,7 @@ export function ModCard({ mod, isSelected, onSelect, onToggle }: ModCardProps) {
       <div className="aspect-[3/4] w-full rounded-lg bg-background-card mb-3 overflow-hidden">
         {mod.preview && mod.preview.length > 0 ? (
           <img
-            src={convertFileSrc(mod.preview[0])}
+            src={convertFileSrc(mod.preview[0]!)}
             alt={mod.name}
             className="w-full h-full object-cover"
           />
