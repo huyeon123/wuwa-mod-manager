@@ -7,6 +7,11 @@ export interface Character {
   thumbnail: string;
 }
 
+export interface ModKeybinding {
+  action: string;
+  key: string;
+}
+
 export interface Mod {
   id: string;
   characterId: string;
@@ -19,6 +24,7 @@ export interface Mod {
   enabled: boolean;
   path: string;
   createdAt: string;
+  keybindings?: ModKeybinding[];
 }
 
 export interface Preset {

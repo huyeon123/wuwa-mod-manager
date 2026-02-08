@@ -1,3 +1,4 @@
+import { useState, useRef, useCallback } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Mod } from "@/lib/types";
 
@@ -8,6 +9,30 @@ interface ModDetailPanelProps {
 }
 
 export function ModDetailPanel({ mod, onToggle, onDelete }: ModDetailPanelProps) {
+  const [thumbnailHeight, setThumbnailHeight] = useState(400);
+  const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragRef.current = { startY: e.clientY, startHeight: thumbnailHeight };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragRef.current) return;
+      const delta = e.clientY - dragRef.current.startY;
+      const newHeight = Math.min(600, Math.max(100, dragRef.current.startHeight + delta));
+      setThumbnailHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      dragRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [thumbnailHeight]);
+
   if (!mod) {
     return (
       <aside className="w-80 flex-shrink-0 border-l border-border bg-sidebar p-6 flex items-center justify-center">
@@ -19,7 +44,10 @@ export function ModDetailPanel({ mod, onToggle, onDelete }: ModDetailPanelProps)
   return (
     <aside className="w-80 flex-shrink-0 border-l border-border bg-sidebar overflow-y-auto">
       {/* Preview */}
-      <div className="aspect-video w-full bg-background-card flex items-center justify-center text-text-muted">
+      <div
+        className="w-full bg-background-card flex items-center justify-center text-text-muted overflow-hidden"
+        style={{ height: `${thumbnailHeight}px` }}
+      >
         {mod.preview && mod.preview.length > 0 ? (
           <img
             src={convertFileSrc(mod.preview[0])}
@@ -29,6 +57,14 @@ export function ModDetailPanel({ mod, onToggle, onDelete }: ModDetailPanelProps)
         ) : (
           "No Preview"
         )}
+      </div>
+
+      {/* Drag handle */}
+      <div
+        onMouseDown={handleDragStart}
+        className="w-full h-1.5 bg-white/5 hover:bg-neon/20 cursor-row-resize flex items-center justify-center transition-colors"
+      >
+        <div className="w-8 h-0.5 rounded-full bg-white/20" />
       </div>
 
       <div className="p-4 space-y-4">
@@ -77,6 +113,21 @@ export function ModDetailPanel({ mod, onToggle, onDelete }: ModDetailPanelProps)
                   >
                     {tag}
                   </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {mod.keybindings && mod.keybindings.length > 0 && (
+            <div>
+              <p className="text-text-muted mb-1">단축키</p>
+              <div className="space-y-1">
+                {mod.keybindings.map((kb, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-text-secondary text-xs">{kb.action}</span>
+                    <kbd className="px-2 py-0.5 rounded bg-white/10 text-xs font-mono text-text-primary border border-white/20">
+                      {kb.key}
+                    </kbd>
+                  </div>
                 ))}
               </div>
             </div>

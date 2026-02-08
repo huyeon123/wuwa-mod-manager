@@ -14,6 +14,14 @@ pub struct GameMod {
     pub enabled: bool,
     pub path: String,
     pub created_at: String,
+    pub keybindings: Option<Vec<ModKeybinding>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModKeybinding {
+    pub action: String,
+    pub key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

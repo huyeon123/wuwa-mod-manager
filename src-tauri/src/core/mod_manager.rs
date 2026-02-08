@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use crate::models::{GameMod, game_mod::ModMetadata};
+use crate::models::{GameMod, game_mod::{ModMetadata, ModKeybinding}};
 
 pub async fn get_mods_for_character(
     character_id: &str,
@@ -87,6 +87,117 @@ async fn find_preview_images(dir: &Path) -> Option<Vec<String>> {
     Some(images)
 }
 
+async fn parse_keybindings_from_dir(dir: &Path) -> Option<Vec<ModKeybinding>> {
+    let mut keybindings = Vec::new();
+    collect_ini_keybindings(dir, &mut keybindings).await;
+
+    if keybindings.is_empty() {
+        None
+    } else {
+        Some(keybindings)
+    }
+}
+
+async fn collect_ini_keybindings(dir: &Path, keybindings: &mut Vec<ModKeybinding>) {
+    let mut entries = match tokio::fs::read_dir(dir).await {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let path = entry.path();
+        if path.is_dir() {
+            Box::pin(collect_ini_keybindings(&path, keybindings)).await;
+        } else if path.is_file() {
+            if let Some(ext) = path.extension() {
+                if ext.to_string_lossy().to_lowercase() == "ini" {
+                    if let Ok(content) = tokio::fs::read_to_string(&path).await {
+                        keybindings.extend(parse_ini_keybindings(&content));
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn parse_ini_keybindings(content: &str) -> Vec<ModKeybinding> {
+    let mut keybindings = Vec::new();
+    let mut current_section: Option<String> = None;
+    let mut is_key_section = false;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        // Check for section header
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            let section_name = &trimmed[1..trimmed.len() - 1];
+
+            // Check if this is a Key section (case-insensitive)
+            if section_name.to_lowercase().starts_with("key") {
+                // Extract action name (remove "Key" prefix)
+                let action = if section_name.len() > 3 {
+                    section_name[3..].to_string()
+                } else {
+                    section_name.to_string()
+                };
+                current_section = Some(action);
+                is_key_section = true;
+            } else {
+                current_section = None;
+                is_key_section = false;
+            }
+            continue;
+        }
+
+        // Parse key= line if we're in a Key section
+        if is_key_section {
+            if let Some(action) = &current_section {
+                let lower = trimmed.to_lowercase();
+                if lower.starts_with("key=") || lower.starts_with("key =") {
+                    // Extract key value
+                    if let Some(equals_pos) = trimmed.find('=') {
+                        let key_value = trimmed[equals_pos + 1..].trim();
+                        if !key_value.is_empty() {
+                            let normalized_key = normalize_key(key_value);
+                            keybindings.push(ModKeybinding {
+                                action: action.clone(),
+                                key: normalized_key,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    keybindings
+}
+
+fn normalize_key(key: &str) -> String {
+    let trimmed = key.trim();
+
+    // Remove VK_ prefix if present
+    let without_prefix = if trimmed.to_uppercase().starts_with("VK_") {
+        &trimmed[3..]
+    } else {
+        trimmed
+    };
+
+    // Capitalize first letter for consistency
+    if without_prefix.is_empty() {
+        return trimmed.to_string();
+    }
+
+    let mut chars = without_prefix.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(first) => {
+            let rest: String = chars.collect();
+            format!("{}{}", first.to_uppercase(), rest.to_uppercase())
+        }
+    }
+}
+
 async fn read_mod_from_dir(
     dir: &Path,
     character_id: &str,
@@ -95,6 +206,7 @@ async fn read_mod_from_dir(
 ) -> Result<GameMod, String> {
     let mod_json_path = dir.join("mod.json");
     let preview_images = find_preview_images(dir).await;
+    let keybindings = parse_keybindings_from_dir(dir).await;
 
     if mod_json_path.exists() {
         let content = tokio::fs::read_to_string(&mod_json_path)
@@ -116,6 +228,7 @@ async fn read_mod_from_dir(
             enabled,
             path: dir.to_string_lossy().to_string(),
             created_at: chrono::Utc::now().to_rfc3339(),
+            keybindings,
         })
     } else {
         Ok(GameMod {
@@ -130,6 +243,7 @@ async fn read_mod_from_dir(
             enabled,
             path: dir.to_string_lossy().to_string(),
             created_at: chrono::Utc::now().to_rfc3339(),
+            keybindings,
         })
     }
 }
