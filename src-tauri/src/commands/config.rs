@@ -39,3 +39,8 @@ pub async fn launch_xxmi(app_handle: tauri::AppHandle) -> Result<bool, String> {
 
     Ok(true)
 }
+
+#[tauri::command]
+pub async fn auto_detect_paths() -> Result<(Option<String>, Option<String>), String> {
+    config_manager::auto_detect_paths().await
+}

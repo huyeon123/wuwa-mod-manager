@@ -20,6 +20,7 @@ import {
   getModCounts,
   setXxmiLauncherPath,
   launchXxmi,
+  autoDetectPaths,
 } from "./lib/commands";
 
 type View = "characters" | "mods";
@@ -46,6 +47,10 @@ export function App() {
         }
         if (config.xxmiLauncherPath) {
           setXxmiLauncherPathState(config.xxmiLauncherPath);
+        }
+        // If no modsPath, redirect to settings
+        if (!config.modsPath) {
+          setActiveMenu("settings");
         }
       })
       .catch((err) => {
@@ -278,11 +283,37 @@ export function App() {
     }
   }, []);
 
+  const handleAutoDetect = useCallback(async () => {
+    try {
+      const [detectedModsPath, detectedXxmiPath] = await autoDetectPaths();
+      if (detectedModsPath) {
+        await setModsPath(detectedModsPath);
+        setModsPathState(detectedModsPath);
+      }
+      if (detectedXxmiPath) {
+        await setXxmiLauncherPath(detectedXxmiPath);
+        setXxmiLauncherPathState(detectedXxmiPath);
+      }
+      if (!detectedModsPath && !detectedXxmiPath) {
+        console.warn("자동 탐지: 경로를 찾을 수 없습니다.");
+      }
+    } catch (err) {
+      console.error("Failed to auto detect paths:", err);
+    }
+  }, []);
+
   const renderContent = () => {
     if (activeMenu === "settings") {
       return (
         <main className="flex-1 overflow-y-auto p-6">
           <h1 className="text-xl font-bold text-text-primary mb-4">설정</h1>
+          {!modsPath && (
+            <div className="mb-4 p-4 rounded-xl border border-neon/30 bg-neon/5">
+              <p className="text-sm text-neon font-medium">
+                처음 사용하시나요? 아래에서 경로를 설정하거나 자동 탐지를 사용하세요.
+              </p>
+            </div>
+          )}
           <div className="space-y-4">
             <div className="p-4 rounded-xl border border-white/10 bg-white/5">
               <label className="text-sm font-medium text-text-primary block mb-2">
@@ -292,6 +323,12 @@ export function App() {
                 <div className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-text-secondary truncate">
                   {modsPath ?? "설정되지 않음"}
                 </div>
+                <button
+                  onClick={handleAutoDetect}
+                  className="px-4 py-2 rounded-lg bg-white/5 text-text-muted border border-white/10 text-sm font-medium hover:bg-white/10 hover:text-text-primary transition-colors"
+                >
+                  자동 탐지
+                </button>
                 <button
                   onClick={handleSelectModsPath}
                   className="px-4 py-2 rounded-lg bg-neon/10 text-neon border border-neon/30 text-sm font-medium hover:bg-neon/20 transition-colors"
@@ -312,6 +349,12 @@ export function App() {
                   {xxmiLauncherPath ?? "설정되지 않음"}
                 </div>
                 <button
+                  onClick={handleAutoDetect}
+                  className="px-4 py-2 rounded-lg bg-white/5 text-text-muted border border-white/10 text-sm font-medium hover:bg-white/10 hover:text-text-primary transition-colors"
+                >
+                  자동 탐지
+                </button>
+                <button
                   onClick={handleSelectXxmiLauncherPath}
                   className="px-4 py-2 rounded-lg bg-neon/10 text-neon border border-neon/30 text-sm font-medium hover:bg-neon/20 transition-colors"
                 >
@@ -322,25 +365,6 @@ export function App() {
                 XXMI Launcher (XXMI Launcher.exe)를 선택하세요
               </p>
             </div>
-          </div>
-        </main>
-      );
-    }
-
-    if (!modsPath) {
-      return (
-        <main className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center">
-          <div className="text-center space-y-4">
-            <h1 className="text-xl font-bold text-text-primary">모드 폴더를 설정하세요</h1>
-            <p className="text-sm text-text-muted">
-              모드를 관리하려면 먼저 Mods 폴더 경로를 지정해야 합니다.
-            </p>
-            <button
-              onClick={handleSelectModsPath}
-              className="px-6 py-3 rounded-xl bg-neon/10 text-neon border border-neon/30 font-medium hover:bg-neon/20 hover:shadow-[0_0_20px_rgba(53,243,229,0.15)] transition-all duration-200"
-            >
-              폴더 선택
-            </button>
           </div>
         </main>
       );

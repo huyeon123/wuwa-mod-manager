@@ -79,3 +79,60 @@ pub async fn set_xxmi_launcher_path(
 
     Ok(true)
 }
+
+pub async fn auto_detect_paths() -> Result<(Option<String>, Option<String>), String> {
+    let mut mods_path: Option<String> = None;
+    let mut xxmi_launcher_path: Option<String> = None;
+
+    // Common XXMI Launcher locations
+    let home = std::env::var("USERPROFILE").unwrap_or_default();
+    let common_paths = vec![
+        format!("{}\\Desktop\\XXMI Launcher.exe", home),
+        format!("{}\\Desktop\\3DMigoto\\XXMI Launcher.exe", home),
+        format!("{}\\3DMigoto\\XXMI Launcher.exe", home),
+        "C:\\3DMigoto\\XXMI Launcher.exe".to_string(),
+        "D:\\3DMigoto\\XXMI Launcher.exe".to_string(),
+        format!("{}\\Downloads\\XXMI Launcher.exe", home),
+        format!("{}\\Desktop\\WWMI\\XXMI Launcher.exe", home),
+        format!("{}\\3DMigoto\\WWMI\\XXMI Launcher.exe", home),
+    ];
+
+    for p in &common_paths {
+        if std::path::Path::new(p).exists() {
+            xxmi_launcher_path = Some(p.clone());
+            break;
+        }
+    }
+
+    // Try to find Mods folder relative to launcher location
+    if let Some(ref launcher) = xxmi_launcher_path {
+        let launcher_dir = std::path::Path::new(launcher).parent();
+        if let Some(dir) = launcher_dir {
+            let mods_dir = dir.join("Mods");
+            if mods_dir.exists() {
+                mods_path = Some(mods_dir.to_string_lossy().to_string());
+            }
+        }
+    }
+
+    // Also check common Mods folder locations independently
+    if mods_path.is_none() {
+        let mods_paths = vec![
+            format!("{}\\Desktop\\3DMigoto\\Mods", home),
+            format!("{}\\3DMigoto\\Mods", home),
+            "C:\\3DMigoto\\Mods".to_string(),
+            "D:\\3DMigoto\\Mods".to_string(),
+            format!("{}\\Desktop\\WWMI\\Mods", home),
+            format!("{}\\3DMigoto\\WWMI\\Mods", home),
+        ];
+
+        for p in &mods_paths {
+            if std::path::Path::new(p).exists() {
+                mods_path = Some(p.clone());
+                break;
+            }
+        }
+    }
+
+    Ok((mods_path, xxmi_launcher_path))
+}
