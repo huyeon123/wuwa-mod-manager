@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/json-schemas/refs/heads/master/tauri/tauri-schema.json",
   "productName": "WuWa Mod Manager",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.wuwa.mod-manager",
   "build": {
     "beforeDevCommand": "npm run dev",
