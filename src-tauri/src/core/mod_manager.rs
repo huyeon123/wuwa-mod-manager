@@ -88,16 +88,27 @@ async fn find_preview_images(dir: &Path) -> Option<Vec<String>> {
 }
 
 async fn parse_keybindings_from_dir(dir: &Path) -> Option<Vec<ModKeybinding>> {
+    let mut keybindings = Vec::new();
+    collect_ini_keybindings(dir, &mut keybindings).await;
+
+    if keybindings.is_empty() {
+        None
+    } else {
+        Some(keybindings)
+    }
+}
+
+async fn collect_ini_keybindings(dir: &Path, keybindings: &mut Vec<ModKeybinding>) {
     let mut entries = match tokio::fs::read_dir(dir).await {
         Ok(e) => e,
-        Err(_) => return None,
+        Err(_) => return,
     };
-
-    let mut keybindings = Vec::new();
 
     while let Ok(Some(entry)) = entries.next_entry().await {
         let path = entry.path();
-        if path.is_file() {
+        if path.is_dir() {
+            Box::pin(collect_ini_keybindings(&path, keybindings)).await;
+        } else if path.is_file() {
             if let Some(ext) = path.extension() {
                 if ext.to_string_lossy().to_lowercase() == "ini" {
                     if let Ok(content) = tokio::fs::read_to_string(&path).await {
@@ -106,12 +117,6 @@ async fn parse_keybindings_from_dir(dir: &Path) -> Option<Vec<ModKeybinding>> {
                 }
             }
         }
-    }
-
-    if keybindings.is_empty() {
-        None
-    } else {
-        Some(keybindings)
     }
 }
 
