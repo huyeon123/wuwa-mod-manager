@@ -325,7 +325,14 @@ export function App() {
 
   return (
     <AppShell>
-      <Sidebar activeMenu={activeMenu} onMenuSelect={handleMenuSelect} />
+      <Sidebar
+        activeMenu={activeMenu}
+        onMenuSelect={handleMenuSelect}
+        characters={characters}
+        selectedCharacterId={selectedCharacterId}
+        view={view}
+        onSelectCharacter={handleSelectCharacter}
+      />
       {renderContent()}
       {selectedMod && (
         <ModDetailPanel
