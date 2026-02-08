@@ -36,6 +36,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          tauriScript: npx tauri
+          args: --bundles nsis
           tagName: ${{ github.ref_name }}
           releaseName: 'WuWa Mod Manager ${{ github.ref_name }}'
           releaseBody: 'See the assets below to download and install.'
