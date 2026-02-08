@@ -2,6 +2,7 @@ export interface Character {
   id: string;
   name: string;
   nameEn: string;
+  category: string;  // "캐릭터" | "방랑자" | "기타"
   element?: string;
   rarity?: number;
   thumbnail: string;

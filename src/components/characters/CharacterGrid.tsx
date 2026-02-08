@@ -18,6 +18,14 @@ const ELEMENT_LABELS: Record<string, string> = {
   회절: "Spectro",
 };
 
+const CATEGORY_ORDER = ["방랑자", "캐릭터", "기타"] as const;
+
+const CATEGORY_LABELS: Record<string, string> = {
+  방랑자: "Rover",
+  캐릭터: "Characters",
+  기타: "Others",
+};
+
 type SortKey = "name" | "element";
 
 export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGridProps) {
@@ -39,22 +47,38 @@ export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGrid
       const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name, "ko"));
       return [{ element: null, label: null, characters: sorted }];
     }
-    return ELEMENT_ORDER.map((element) => ({
+
+    // 1. 방랑자 그룹
+    const rovers = filtered.filter(c => c.category === "방랑자")
+      .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+
+    // 2. 캐릭터 - 속성별 그룹 (기존 로직)
+    const elementGroups = ELEMENT_ORDER.map(element => ({
       element,
       label: ELEMENT_LABELS[element],
-      characters: filtered
-        .filter((c) => c.element === element)
+      characters: filtered.filter(c => c.category === "캐릭터" && c.element === element)
         .sort((a, b) => a.name.localeCompare(b.name, "ko")),
-    })).filter((g) => g.characters.length > 0);
+    })).filter(g => g.characters.length > 0);
+
+    // 3. 기타 카테고리
+    const others = filtered.filter(c => c.category === "기타")
+      .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+
+    // 합치기
+    return [
+      ...(rovers.length > 0 ? [{ element: "방랑자", label: "Rover", characters: rovers }] : []),
+      ...elementGroups,
+      ...(others.length > 0 ? [{ element: "기타", label: "Others", characters: others }] : []),
+    ];
   }, [filtered, sortBy]);
 
   return (
     <main className="flex-1 overflow-y-auto p-6">
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-text-primary">캐릭터</h1>
+          <h1 className="text-xl font-bold text-text-primary">모드 대상 선택</h1>
           <p className="text-sm text-text-muted">
-            모드를 관리할 캐릭터를 선택하세요
+            모드를 관리할 대상을 선택하세요
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -110,11 +134,13 @@ export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGrid
           <section key={group.element ?? "all"}>
             {group.element && (
               <div className="flex items-center gap-2 mb-3">
-                <img
-                  src={`/elements/ic_${group.element}.png`}
-                  alt={group.element}
-                  className="w-5 h-5"
-                />
+                {["기류", "용융", "응결", "인멸", "전도", "회절"].includes(group.element) && (
+                  <img
+                    src={`/elements/ic_${group.element}.png`}
+                    alt={group.element}
+                    className="w-5 h-5"
+                  />
+                )}
                 <h2 className="text-sm font-semibold text-text-primary">
                   {group.element}
                   <span className="ml-1.5 text-text-muted font-normal">

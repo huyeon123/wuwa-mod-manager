@@ -65,6 +65,20 @@ export function Sidebar({
     char.nameEn.toLowerCase().includes(charSearch.toLowerCase())
   );
 
+  // Group filtered characters by category
+  const CATEGORY_ORDER = ["방랑자", "캐릭터", "기타"] as const;
+  const CATEGORY_LABELS: Record<string, string> = {
+    방랑자: "Rover",
+    캐릭터: "Characters",
+    기타: "Others",
+  };
+
+  const groupedCharacters = CATEGORY_ORDER.map(cat => ({
+    category: cat,
+    label: CATEGORY_LABELS[cat],
+    characters: filteredCharacters.filter(c => c.category === cat),
+  })).filter(g => g.characters.length > 0);
+
   return (
     <aside
       className={`flex-shrink-0 border-r border-border bg-sidebar flex flex-col py-4 transition-all duration-200 overflow-y-auto overflow-x-hidden ${
@@ -113,23 +127,38 @@ export function Sidebar({
                   placeholder="검색..."
                   className="w-full px-2.5 py-1.5 text-xs bg-background-hover border border-border rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon/50 transition-colors"
                 />
-                {filteredCharacters.map((character) => (
-                  <button
-                    key={character.id}
-                    onClick={() => onSelectCharacter(character.id)}
-                    className={`w-full rounded-lg flex items-center gap-2 px-3 py-2 transition-all duration-200 ${
-                      selectedCharacterId === character.id
-                        ? "bg-neon/10 text-neon"
-                        : "text-text-muted hover:bg-background-hover hover:text-text-primary"
-                    }`}
-                  >
-                    <img
-                      src={character.thumbnail}
-                      alt={character.name}
-                      className="w-5 h-5 rounded-full object-cover flex-shrink-0"
-                    />
-                    <span className="text-xs truncate">{character.name}</span>
-                  </button>
+                {groupedCharacters.map((group, groupIdx) => (
+                  <div key={group.category}>
+                    {groupIdx > 0 && <div className="h-px bg-border my-1" />}
+                    <div className="text-xs text-text-muted px-2 py-1 font-medium">
+                      {group.label}
+                    </div>
+                    {group.characters.map((character) => (
+                      <button
+                        key={character.id}
+                        onClick={() => onSelectCharacter(character.id)}
+                        className={`w-full rounded-lg flex items-center gap-2 px-3 py-2 transition-all duration-200 ${
+                          selectedCharacterId === character.id
+                            ? "bg-neon/10 text-neon"
+                            : "text-text-muted hover:bg-background-hover hover:text-text-primary"
+                        }`}
+                      >
+                        <img
+                          src={character.thumbnail}
+                          alt={character.name}
+                          className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+                        />
+                        <span className="text-xs truncate">{character.name}</span>
+                        {character.element && (
+                          <img
+                            src={`/elements/ic_${character.element}.png`}
+                            alt={character.element}
+                            className="w-4 h-4 ml-auto flex-shrink-0"
+                          />
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}

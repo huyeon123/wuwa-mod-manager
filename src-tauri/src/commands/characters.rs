@@ -3,6 +3,8 @@ use crate::models::Character;
 #[tauri::command]
 pub async fn get_characters() -> Result<Vec<Character>, String> {
     let characters = vec![
+        // 주인공
+        protagonist("방랑자", "Rover"),
         // 기류 (Aero)
         c("감심", "Jianxin", Some("기류")),
         c("구원", "Qiuyuan", Some("기류")),
@@ -49,12 +51,17 @@ pub async fn get_characters() -> Result<Vec<Character>, String> {
         c("금희", "Jinhsi", Some("회절")),
         c("린네", "Lynae", Some("회절")),
         c("루크・헤르센", "Luuk Herssen", Some("회절")),
-        c("방랑자", "Rover", Some("회절")),
         c("벨리나", "Verina", Some("회절")),
         c("상리요", "Xiangli Yao", Some("회절")),
         c("젠니", "Zani", Some("회절")),
         c("파수인", "Shorekeeper", Some("회절")),
         c("페비", "Phoebe", Some("회절")),
+        // 바이크
+        item("바이크", "Bike", "기타"),
+        // 글라이더
+        item("글라이더", "Glider", "기타"),
+        // 기타
+        item("기타", "Others", "기타"),
     ];
 
     Ok(characters)
@@ -65,7 +72,34 @@ fn c(name: &str, name_en: &str, element: Option<&str>) -> Character {
         id: name.to_string(),
         name: name.to_string(),
         name_en: name_en.to_string(),
+        category: "캐릭터".to_string(),
         element: element.map(|e| e.to_string()),
+        rarity: None,
+        thumbnail: format!("/characters/char_{}.png", name),
+    }
+}
+
+// 주인공 전용
+fn protagonist(name: &str, name_en: &str) -> Character {
+    Character {
+        id: name.to_string(),
+        name: name.to_string(),
+        name_en: name_en.to_string(),
+        category: "방랑자".to_string(),
+        element: None,
+        rarity: None,
+        thumbnail: format!("/characters/char_{}.png", name),
+    }
+}
+
+// 바이크/글라이더/기타 전용
+fn item(name: &str, name_en: &str, category: &str) -> Character {
+    Character {
+        id: name.to_string(),
+        name: name.to_string(),
+        name_en: name_en.to_string(),
+        category: category.to_string(),
+        element: None,
         rarity: None,
         thumbnail: format!("/characters/char_{}.png", name),
     }
