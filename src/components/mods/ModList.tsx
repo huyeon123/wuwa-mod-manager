@@ -12,6 +12,8 @@ interface ModListProps {
   characterName: string;
   onBack: () => void;
   loading: boolean;
+  isDragging: boolean;
+  onDropFiles: (paths: string[]) => void;
 }
 
 export function ModList({
@@ -24,6 +26,8 @@ export function ModList({
   characterName,
   onBack,
   loading,
+  isDragging,
+  onDropFiles,
 }: ModListProps) {
   const [showImportMenu, setShowImportMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -39,7 +43,20 @@ export function ModList({
   }, []);
 
   return (
-    <main className="flex-1 overflow-y-auto p-6">
+    <main className="flex-1 overflow-y-auto p-6 relative">
+      {isDragging && (
+        <div className="absolute inset-0 z-20 bg-background/80 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
+          <div className="border-2 border-dashed border-neon/50 rounded-2xl p-12 flex flex-col items-center gap-4 max-w-md mx-auto">
+            <svg className="w-16 h-16 text-neon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            <div className="text-center">
+              <p className="text-lg font-medium text-neon mb-1">모드 파일을 여기에 드롭하세요</p>
+              <p className="text-sm text-text-muted">ZIP 파일 또는 폴더</p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="mb-4">
         <button
           onClick={onBack}
@@ -118,17 +135,11 @@ export function ModList({
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center h-64 text-text-muted">
-          <svg className="w-12 h-12 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+          <svg className="w-12 h-12 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
           </svg>
           <p className="text-lg mb-2">모드가 없습니다</p>
-          <p className="text-sm mb-4">ZIP 파일 또는 폴더를 Import하여 시작하세요</p>
-          <button
-            onClick={onImportZip}
-            className="px-4 py-2 rounded-lg bg-neon/10 text-neon border border-neon/30 text-sm font-medium hover:bg-neon/20 transition-colors"
-          >
-            모드 Import
-          </button>
+          <p className="text-sm">ZIP 파일 또는 폴더를 이 영역에 드래그 앤 드롭하세요</p>
         </div>
       )}
     </main>

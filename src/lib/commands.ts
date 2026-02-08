@@ -48,3 +48,7 @@ export async function getConfig(): Promise<AppConfig> {
 export async function setModsPath(path: string): Promise<boolean> {
   return invoke<boolean>("set_mods_path", { path });
 }
+
+export async function getModCounts(modsPath: string): Promise<Record<string, [number, number]>> {
+  return invoke<Record<string, [number, number]>>("get_mod_counts", { modsPath });
+}
