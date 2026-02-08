@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { getVersion } from "@tauri-apps/api/app";
 import { AppShell } from "./components/layout/AppShell";
 import { Sidebar } from "./components/layout/Sidebar";
 import type { MenuId } from "./components/layout/Sidebar";
@@ -39,6 +40,7 @@ export function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [modCounts, setModCounts] = useState<Record<string, [number, number]>>({});
   const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [appVersion, setAppVersion] = useState<string>("");
 
   const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
     const id = Date.now().toString();
@@ -72,6 +74,7 @@ export function App() {
       .catch((err) => {
         console.error("Failed to load config:", err);
       });
+    getVersion().then(setAppVersion).catch(console.error);
   }, []);
 
   // Load characters
@@ -398,6 +401,15 @@ export function App() {
               <p className="text-xs text-text-muted mt-2">
                 XXMI Launcher (XXMI Launcher.exe)를 선택하세요
               </p>
+            </div>
+            <div className="p-4 rounded-xl border border-white/10 bg-white/5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-text-primary">앱 버전</p>
+                  <p className="text-xs text-text-muted mt-1">WWUA Mod Manager</p>
+                </div>
+                <span className="text-sm text-text-secondary font-mono">v{appVersion}</span>
+              </div>
             </div>
           </div>
         </main>
