@@ -10,7 +10,8 @@
     "frontendDist": "../dist"
   },
   "bundle": {
-    "targets": ["nsis"]
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true
   },
   "app": {
     "windows": [

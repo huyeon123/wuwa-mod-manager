@@ -5,3 +5,6 @@ dist
 src-tauri/target
 .tauri-signing-key
 .tauri-signing-key.pub
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.d.ts.map
