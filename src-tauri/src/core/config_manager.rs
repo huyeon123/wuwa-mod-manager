@@ -84,23 +84,79 @@ pub async fn auto_detect_paths() -> Result<(Option<String>, Option<String>), Str
     let mut mods_path: Option<String> = None;
     let mut xxmi_launcher_path: Option<String> = None;
 
-    // Common XXMI Launcher locations
-    let home = std::env::var("USERPROFILE").unwrap_or_default();
-    let appdata = std::env::var("APPDATA").unwrap_or_default();
-    let common_paths = vec![
-        format!("{}\\XXMI Launcher\\Resources\\Bin\\XXMI Launcher.exe", appdata),
-        format!("{}\\XXMI Launcher\\XXMI Launcher.exe", appdata),
-        format!("{}\\Desktop\\XXMI Launcher.exe", home),
-        format!("{}\\Desktop\\3DMigoto\\XXMI Launcher.exe", home),
-        format!("{}\\3DMigoto\\XXMI Launcher.exe", home),
-        "C:\\3DMigoto\\XXMI Launcher.exe".to_string(),
-        "D:\\3DMigoto\\XXMI Launcher.exe".to_string(),
-        format!("{}\\Downloads\\XXMI Launcher.exe", home),
-        format!("{}\\Desktop\\WWMI\\XXMI Launcher.exe", home),
-        format!("{}\\3DMigoto\\WWMI\\XXMI Launcher.exe", home),
-    ];
+    let home = dirs::home_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
 
-    for p in &common_paths {
+    let mut launcher_candidates: Vec<String> = Vec::new();
+    let mut mods_candidates: Vec<String> = Vec::new();
+
+    #[cfg(target_os = "windows")]
+    {
+        let appdata = std::env::var("APPDATA").unwrap_or_default();
+        let sep = "\\";
+        launcher_candidates.extend([
+            format!("{}{sep}XXMI Launcher{sep}Resources{sep}Bin{sep}XXMI Launcher.exe", appdata),
+            format!("{}{sep}XXMI Launcher{sep}XXMI Launcher.exe", appdata),
+            format!("{}{sep}Desktop{sep}XXMI Launcher.exe", home),
+            format!("{}{sep}Desktop{sep}3DMigoto{sep}XXMI Launcher.exe", home),
+            format!("{}{sep}3DMigoto{sep}XXMI Launcher.exe", home),
+            "C:\\3DMigoto\\XXMI Launcher.exe".to_string(),
+            "D:\\3DMigoto\\XXMI Launcher.exe".to_string(),
+            format!("{}{sep}Downloads{sep}XXMI Launcher.exe", home),
+            format!("{}{sep}Desktop{sep}WWMI{sep}XXMI Launcher.exe", home),
+            format!("{}{sep}3DMigoto{sep}WWMI{sep}XXMI Launcher.exe", home),
+        ]);
+        mods_candidates.extend([
+            format!("{}{sep}XXMI Launcher{sep}WWMI{sep}Mods", appdata),
+            format!("{}{sep}Desktop{sep}3DMigoto{sep}Mods", home),
+            format!("{}{sep}3DMigoto{sep}Mods", home),
+            "C:\\3DMigoto\\Mods".to_string(),
+            "D:\\3DMigoto\\Mods".to_string(),
+            format!("{}{sep}Desktop{sep}WWMI{sep}Mods", home),
+            format!("{}{sep}3DMigoto{sep}WWMI{sep}Mods", home),
+        ]);
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let app_support = dirs::data_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let sep = "/";
+        launcher_candidates.extend([
+            format!("{}{sep}XXMI Launcher{sep}Resources{sep}Bin{sep}XXMI Launcher", app_support),
+            format!("{}{sep}XXMI Launcher{sep}XXMI Launcher", app_support),
+            format!("{}{sep}Applications{sep}XXMI Launcher.app", home),
+            format!("{}{sep}Desktop{sep}XXMI Launcher", home),
+            format!("{}{sep}Desktop{sep}3DMigoto{sep}XXMI Launcher", home),
+            format!("{}{sep}3DMigoto{sep}XXMI Launcher", home),
+            format!("{}{sep}Downloads{sep}XXMI Launcher", home),
+        ]);
+        mods_candidates.extend([
+            format!("{}{sep}XXMI Launcher{sep}WWMI{sep}Mods", app_support),
+            format!("{}{sep}Desktop{sep}3DMigoto{sep}Mods", home),
+            format!("{}{sep}3DMigoto{sep}Mods", home),
+            format!("{}{sep}Desktop{sep}WWMI{sep}Mods", home),
+        ]);
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let sep = "/";
+        launcher_candidates.extend([
+            format!("{}{sep}.local{sep}share{sep}XXMI Launcher{sep}XXMI Launcher", home),
+            format!("{}{sep}Desktop{sep}XXMI Launcher", home),
+            format!("{}{sep}3DMigoto{sep}XXMI Launcher", home),
+        ]);
+        mods_candidates.extend([
+            format!("{}{sep}.local{sep}share{sep}XXMI Launcher{sep}WWMI{sep}Mods", home),
+            format!("{}{sep}Desktop{sep}3DMigoto{sep}Mods", home),
+            format!("{}{sep}3DMigoto{sep}Mods", home),
+        ]);
+    }
+
+    for p in &launcher_candidates {
         if std::path::Path::new(p).exists() {
             xxmi_launcher_path = Some(p.clone());
             break;
@@ -120,17 +176,7 @@ pub async fn auto_detect_paths() -> Result<(Option<String>, Option<String>), Str
 
     // Also check common Mods folder locations independently
     if mods_path.is_none() {
-        let mods_paths = vec![
-            format!("{}\\XXMI Launcher\\WWMI\\Mods", appdata),
-            format!("{}\\Desktop\\3DMigoto\\Mods", home),
-            format!("{}\\3DMigoto\\Mods", home),
-            "C:\\3DMigoto\\Mods".to_string(),
-            "D:\\3DMigoto\\Mods".to_string(),
-            format!("{}\\Desktop\\WWMI\\Mods", home),
-            format!("{}\\3DMigoto\\WWMI\\Mods", home),
-        ];
-
-        for p in &mods_paths {
+        for p in &mods_candidates {
             if std::path::Path::new(p).exists() {
                 mods_path = Some(p.clone());
                 break;
