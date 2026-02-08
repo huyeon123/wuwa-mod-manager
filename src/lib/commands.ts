@@ -1,0 +1,34 @@
+import { invoke } from "@tauri-apps/api/core";
+import type { Character, Mod, AppConfig } from "./types";
+
+export async function getCharacters(): Promise<Character[]> {
+  return invoke<Character[]>("get_characters");
+}
+
+export async function getMods(characterId: string, modsPath: string): Promise<Mod[]> {
+  return invoke<Mod[]>("get_mods", { characterId, modsPath });
+}
+
+export async function enableMod(
+  modId: string,
+  characterId: string,
+  modsPath: string,
+): Promise<boolean> {
+  return invoke<boolean>("enable_mod", { modId, characterId, modsPath });
+}
+
+export async function disableMod(
+  modId: string,
+  characterId: string,
+  modsPath: string,
+): Promise<boolean> {
+  return invoke<boolean>("disable_mod", { modId, characterId, modsPath });
+}
+
+export async function getConfig(): Promise<AppConfig> {
+  return invoke<AppConfig>("get_config");
+}
+
+export async function setModsPath(path: string): Promise<boolean> {
+  return invoke<boolean>("set_mods_path", { path });
+}
