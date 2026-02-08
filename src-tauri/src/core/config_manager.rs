@@ -63,3 +63,19 @@ pub async fn set_mods_path(
 
     Ok(true)
 }
+
+pub async fn set_xxmi_launcher_path(
+    path: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<bool, String> {
+    let launcher_path = std::path::Path::new(path);
+    if !launcher_path.exists() {
+        return Err(format!("경로가 존재하지 않습니다: {}", path));
+    }
+
+    let mut config = load_config(app_handle).await?;
+    config.xxmi_launcher_path = Some(path.to_string());
+    save_config(&config, app_handle).await?;
+
+    Ok(true)
+}

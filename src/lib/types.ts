@@ -33,4 +33,5 @@ export interface Preset {
 export interface AppConfig {
   modsPath?: string;
   gamePath?: string;
+  xxmiLauncherPath?: string;
 }
