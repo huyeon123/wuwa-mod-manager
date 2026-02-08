@@ -26,7 +26,7 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
 
   const handleReport = () => {
     window.open(
-      "https://github.com/user/wwua-mod-manager/issues/new",
+      "https://github.com/user/wuwa-mod-manager/issues/new",
       "_blank"
     );
   };

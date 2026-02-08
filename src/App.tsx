@@ -406,7 +406,7 @@ export function App() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-text-primary">앱 버전</p>
-                  <p className="text-xs text-text-muted mt-1">WWUA Mod Manager</p>
+                  <p className="text-xs text-text-muted mt-1">WuWa Mod Manager</p>
                 </div>
                 <span className="text-sm text-text-secondary font-mono">v{appVersion}</span>
               </div>

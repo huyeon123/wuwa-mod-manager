@@ -1,8 +1,8 @@
-# WWUA Mod Manager
+# WuWa Mod Manager
 
 명조(Wuthering Waves) 게임의 3DMigoto/XXMI 모드를 관리하는 데스크톱 애플리케이션입니다.
 
-![WWUA Mod Manager Screenshot](./docs/screenshot-placeholder.png)
+![WuWa Mod Manager Screenshot](./docs/screenshot-placeholder.png)
 
 ---
 

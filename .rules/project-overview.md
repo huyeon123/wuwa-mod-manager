@@ -1,6 +1,6 @@
 # 프로젝트 개요
 
-## WWUA Mod Manager
+## WuWa Mod Manager
 
 명조(Wuthering Waves) 모드를 관리하기 위한 데스크톱 애플리케이션입니다.
 

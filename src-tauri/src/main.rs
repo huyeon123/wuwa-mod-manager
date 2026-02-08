@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    wwua_mod_manager_lib::run()
+    wuwa_mod_manager_lib::run()
 }
