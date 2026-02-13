@@ -28,13 +28,16 @@ export interface Mod {
   keybindings?: ModKeybinding[];
 }
 
+export interface PresetMod {
+  characterId: string;
+  modId: string;
+}
+
 export interface Preset {
   id: string;
   name: string;
-  description?: string;
-  enabledMods: string[];
+  mods: PresetMod[];
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface AppConfig {
@@ -43,4 +46,5 @@ export interface AppConfig {
   xxmiLauncherPath?: string;
   favoriteCharacters: string[];
   favoriteMods: string[];
+  presets: Preset[];
 }

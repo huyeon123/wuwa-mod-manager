@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Character, Mod, AppConfig } from "./types";
+import type { Character, Mod, AppConfig, Preset, PresetMod } from "./types";
 
 export async function getCharacters(): Promise<Character[]> {
   return invoke<Character[]>("get_characters");
@@ -71,4 +71,24 @@ export async function toggleFavoriteCharacter(characterId: string): Promise<AppC
 
 export async function toggleFavoriteMod(characterId: string, modId: string): Promise<AppConfig> {
   return invoke<AppConfig>("toggle_favorite_mod", { characterId, modId });
+}
+
+export async function getPresets(): Promise<Preset[]> {
+  return invoke<Preset[]>("get_presets");
+}
+
+export async function createPreset(name: string, mods: PresetMod[]): Promise<Preset> {
+  return invoke<Preset>("create_preset", { name, mods });
+}
+
+export async function deletePreset(presetId: string): Promise<boolean> {
+  return invoke<boolean>("delete_preset", { presetId });
+}
+
+export async function togglePreset(presetId: string, enable: boolean, modsPath: string): Promise<boolean> {
+  return invoke<boolean>("toggle_preset", { presetId, enable, modsPath });
+}
+
+export async function updatePreset(presetId: string, name?: string, mods?: PresetMod[]): Promise<Preset> {
+  return invoke<Preset>("update_preset", { presetId, name, mods });
 }
