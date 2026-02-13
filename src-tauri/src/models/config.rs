@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use super::preset::Preset;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -10,6 +11,8 @@ pub struct AppConfig {
     pub favorite_characters: Vec<String>,
     #[serde(default)]
     pub favorite_mods: Vec<String>,
+    #[serde(default)]
+    pub presets: Vec<Preset>,
 }
 
 impl Default for AppConfig {
@@ -20,6 +23,7 @@ impl Default for AppConfig {
             xxmi_launcher_path: None,
             favorite_characters: Vec::new(),
             favorite_mods: Vec::new(),
+            presets: Vec::new(),
         }
     }
 }
