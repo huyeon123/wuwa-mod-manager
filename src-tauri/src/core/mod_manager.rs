@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use crate::models::{GameMod, game_mod::{ModMetadata, ModKeybinding, ImportPreviewData}};
 
 pub async fn get_mods_for_character(
@@ -323,131 +323,273 @@ pub async fn import_mod(
         return Err(format!("파일을 찾을 수 없습니다: {}", source_path));
     }
 
-    // Determine the mod content directory
-    let mod_content_dir: PathBuf;
-    let _temp_dir: Option<PathBuf>;
-
     if source.is_file() && source_path.to_lowercase().ends_with(".zip") {
-        // Extract ZIP to temp directory
-        let temp_path = std::env::temp_dir().join(format!("wuwa_import_{}", uuid::Uuid::new_v4()));
-        tokio::fs::create_dir_all(&temp_path)
-            .await
-            .map_err(|e| format!("임시 폴더 생성 실패: {}", e))?;
+        // === ZIP direct extraction (single I/O pass) ===
 
-        // ZIP extraction (synchronous, run in blocking task)
+        // Phase 1: Scan ZIP in memory to detect root_prefix and read mod.json
         let zip_path = source.to_path_buf();
-        let extract_path = temp_path.clone();
-        tokio::task::spawn_blocking(move || {
+        let (root_prefix, mod_json_content) = tokio::task::spawn_blocking(move || {
             let file = std::fs::File::open(&zip_path)
                 .map_err(|e| format!("ZIP 파일 열기 실패: {}", e))?;
             let mut archive = zip::ZipArchive::new(file)
                 .map_err(|e| format!("ZIP 파일 읽기 실패: {}", e))?;
-            archive.extract(&extract_path)
-                .map_err(|e| format!("ZIP 압축 해제 실패: {}", e))?;
-            Ok::<(), String>(())
+
+            // Detect if all entries share a single root folder
+            let mut first_components: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for i in 0..archive.len() {
+                let entry = archive.by_index(i)
+                    .map_err(|e| format!("ZIP 엔트리 읽기 실패: {}", e))?;
+                let name = entry.name().to_string();
+                if let Some(first) = name.split('/').next() {
+                    if !first.is_empty() {
+                        first_components.insert(first.to_string());
+                    }
+                }
+            }
+
+            let detected_prefix = if first_components.len() == 1 {
+                let single_root = first_components.into_iter().next()
+                    .ok_or_else(|| "ZIP 루트 감지 실패".to_string())?;
+                // Verify it's actually a directory (has entries under it)
+                let prefix_with_slash = format!("{}/", single_root);
+                let has_children = (0..archive.len()).any(|i| {
+                    archive.by_index(i)
+                        .map(|e| {
+                            let n = e.name().to_string();
+                            n.starts_with(&prefix_with_slash) && n.len() > prefix_with_slash.len()
+                        })
+                        .unwrap_or(false)
+                });
+                if has_children {
+                    Some(prefix_with_slash)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // Find and read mod.json content in memory
+            let mod_json_path = if let Some(ref prefix) = detected_prefix {
+                format!("{}mod.json", prefix)
+            } else {
+                "mod.json".to_string()
+            };
+
+            let mut mod_json_str: Option<String> = None;
+            for i in 0..archive.len() {
+                let mut entry = archive.by_index(i)
+                    .map_err(|e| format!("ZIP 엔트리 읽기 실패: {}", e))?;
+                if entry.name() == mod_json_path {
+                    let mut content = String::new();
+                    std::io::Read::read_to_string(&mut entry, &mut content)
+                        .map_err(|e| format!("mod.json 읽기 실패: {}", e))?;
+                    mod_json_str = Some(content);
+                    break;
+                }
+            }
+
+            Ok::<(Option<String>, Option<String>), String>((detected_prefix, mod_json_str))
         })
         .await
         .map_err(|e| format!("ZIP 처리 중 오류: {}", e))?
         .map_err(|e: String| e)?;
 
-        // Check if ZIP contains a single root folder
-        let mut entries = tokio::fs::read_dir(&temp_path)
-            .await
-            .map_err(|e| format!("임시 폴더 읽기 실패: {}", e))?;
-
-        let mut children: Vec<PathBuf> = Vec::new();
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            children.push(entry.path());
-        }
-
-        if children.len() == 1 && children[0].is_dir() {
-            mod_content_dir = children[0].clone();
-        } else {
-            mod_content_dir = temp_path.clone();
-        }
-        _temp_dir = Some(temp_path);
-    } else if source.is_dir() {
-        mod_content_dir = source.to_path_buf();
-        _temp_dir = None;
-    } else {
-        return Err("지원하지 않는 파일 형식입니다. ZIP 파일 또는 폴더를 선택하세요.".to_string());
-    }
-
-    // Determine mod name from folder or custom_name
-    let mod_name = if let Some(name) = custom_name {
-        name.to_string()
-    } else {
-        mod_content_dir
-            .file_name()
+        // Phase 2: Determine mod_id and create target directory
+        let zip_stem = source.file_stem()
             .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| "unknown_mod".to_string())
-    };
+            .unwrap_or_else(|| "unknown_mod".to_string());
 
-    // Read or create mod metadata
-    let mod_json_path = mod_content_dir.join("mod.json");
-    let mod_id = if mod_json_path.exists() {
-        let content = tokio::fs::read_to_string(&mod_json_path)
-            .await
-            .map_err(|e| format!("mod.json 읽기 실패: {}", e))?;
-        let metadata: ModMetadata = serde_json::from_str(&content)
-            .map_err(|e| format!("mod.json 파싱 실패: {}", e))?;
-        metadata.id
-    } else {
-        mod_name.clone()
-    };
-
-    // Base directory: <mods_path>/mod_manager/<character_id>/
-    let base = Path::new(mods_path)
-        .join("mod_manager")
-        .join(character_id);
-
-    // Create base directory if it doesn't exist
-    tokio::fs::create_dir_all(&base)
-        .await
-        .map_err(|e| format!("폴더 생성 실패: {}", e))?;
-
-    // Copy to destination as DISABLED: <base>/DISABLED_<mod_id>/
-    let dest = base.join(format!("DISABLED_{}", mod_id));
-    if dest.exists() {
-        return Err(format!("이미 동일한 이름의 모드가 존재합니다: {}", mod_id));
-    }
-
-    // Also check if enabled version exists
-    let enabled_dest = base.join(&mod_id);
-    if enabled_dest.exists() {
-        return Err(format!("이미 동일한 이름의 모드가 존재합니다: {}", mod_id));
-    }
-
-    // Recursive copy
-    copy_dir_recursive(&mod_content_dir, &dest).await?;
-
-    // Write mod.json if it doesn't exist
-    let dest_mod_json = dest.join("mod.json");
-    if !dest_mod_json.exists() {
-        let metadata = ModMetadata {
-            id: mod_id.clone(),
-            name: mod_name.clone(),
-            character_id: character_id.to_string(),
-            description: None,
-            author: None,
-            version: None,
-            tags: None,
-            preview: None,
+        let mod_name = if let Some(name) = custom_name {
+            name.to_string()
+        } else if let Some(ref prefix) = root_prefix {
+            // Use root folder name (strip trailing slash)
+            prefix.trim_end_matches('/').to_string()
+        } else {
+            zip_stem
         };
-        let json = serde_json::to_string_pretty(&metadata)
-            .map_err(|e| format!("mod.json 생성 실패: {}", e))?;
-        tokio::fs::write(&dest_mod_json, json)
+
+        let (mod_id, has_mod_json) = if let Some(ref json_content) = mod_json_content {
+            let metadata: ModMetadata = serde_json::from_str(json_content)
+                .map_err(|e| format!("mod.json 파싱 실패: {}", e))?;
+            (metadata.id, true)
+        } else {
+            (mod_name.clone(), false)
+        };
+
+        // Base directory: <mods_path>/mod_manager/<character_id>/
+        let base = Path::new(mods_path)
+            .join("mod_manager")
+            .join(character_id);
+
+        tokio::fs::create_dir_all(&base)
             .await
-            .map_err(|e| format!("mod.json 쓰기 실패: {}", e))?;
-    }
+            .map_err(|e| format!("폴더 생성 실패: {}", e))?;
 
-    // Clean up temp directory
-    if let Some(temp) = _temp_dir {
-        let _ = tokio::fs::remove_dir_all(&temp).await;
-    }
+        let dest = base.join(format!("DISABLED_{}", mod_id));
+        if dest.exists() {
+            return Err(format!("이미 동일한 이름의 모드가 존재합니다: {}", mod_id));
+        }
 
-    // Return the imported mod (enabled=false)
-    read_mod_from_dir(&dest, character_id, false, &mod_id).await
+        let enabled_dest = base.join(&mod_id);
+        if enabled_dest.exists() {
+            return Err(format!("이미 동일한 이름의 모드가 존재합니다: {}", mod_id));
+        }
+
+        tokio::fs::create_dir_all(&dest)
+            .await
+            .map_err(|e| format!("대상 폴더 생성 실패: {}", e))?;
+
+        // Phase 3: Extract directly to target directory
+        let zip_path_for_extract = source.to_path_buf();
+        let dest_for_extract = dest.clone();
+        let prefix_for_extract = root_prefix.clone();
+        tokio::task::spawn_blocking(move || {
+            let file = std::fs::File::open(&zip_path_for_extract)
+                .map_err(|e| format!("ZIP 파일 열기 실패: {}", e))?;
+            let mut archive = zip::ZipArchive::new(file)
+                .map_err(|e| format!("ZIP 파일 읽기 실패: {}", e))?;
+
+            for i in 0..archive.len() {
+                let mut entry = archive.by_index(i)
+                    .map_err(|e| format!("ZIP 엔트리 읽기 실패: {}", e))?;
+                let entry_path = entry.name().to_string();
+
+                // Strip root prefix if present
+                let relative_path = if let Some(ref prefix) = prefix_for_extract {
+                    if let Some(stripped) = entry_path.strip_prefix(prefix.as_str()) {
+                        stripped.to_string()
+                    } else {
+                        // Entry outside root prefix (e.g., the root dir entry itself)
+                        continue;
+                    }
+                } else {
+                    entry_path.clone()
+                };
+
+                if relative_path.is_empty() {
+                    continue;
+                }
+
+                let target = dest_for_extract.join(&relative_path);
+
+                if entry.is_dir() {
+                    std::fs::create_dir_all(&target)
+                        .map_err(|e| format!("폴더 생성 실패: {}", e))?;
+                } else {
+                    if let Some(parent) = target.parent() {
+                        std::fs::create_dir_all(parent)
+                            .map_err(|e| format!("폴더 생성 실패: {}", e))?;
+                    }
+                    let mut outfile = std::fs::File::create(&target)
+                        .map_err(|e| format!("파일 생성 실패: {}", e))?;
+                    std::io::copy(&mut entry, &mut outfile)
+                        .map_err(|e| format!("파일 쓰기 실패: {}", e))?;
+                }
+            }
+
+            Ok::<(), String>(())
+        })
+        .await
+        .map_err(|e| format!("ZIP 추출 중 오류: {}", e))?
+        .map_err(|e: String| e)?;
+
+        // Write mod.json if it wasn't in the ZIP
+        if !has_mod_json {
+            let dest_mod_json = dest.join("mod.json");
+            let metadata = ModMetadata {
+                id: mod_id.clone(),
+                name: mod_name.clone(),
+                character_id: character_id.to_string(),
+                description: None,
+                author: None,
+                version: None,
+                tags: None,
+                preview: None,
+            };
+            let json = serde_json::to_string_pretty(&metadata)
+                .map_err(|e| format!("mod.json 생성 실패: {}", e))?;
+            tokio::fs::write(&dest_mod_json, json)
+                .await
+                .map_err(|e| format!("mod.json 쓰기 실패: {}", e))?;
+        }
+
+        // Return the imported mod (enabled=false)
+        read_mod_from_dir(&dest, character_id, false, &mod_id).await
+    } else if source.is_dir() {
+        // === Folder import (unchanged) ===
+        let mod_content_dir = source.to_path_buf();
+
+        // Determine mod name from folder or custom_name
+        let mod_name = if let Some(name) = custom_name {
+            name.to_string()
+        } else {
+            mod_content_dir
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "unknown_mod".to_string())
+        };
+
+        // Read or create mod metadata
+        let mod_json_path = mod_content_dir.join("mod.json");
+        let mod_id = if mod_json_path.exists() {
+            let content = tokio::fs::read_to_string(&mod_json_path)
+                .await
+                .map_err(|e| format!("mod.json 읽기 실패: {}", e))?;
+            let metadata: ModMetadata = serde_json::from_str(&content)
+                .map_err(|e| format!("mod.json 파싱 실패: {}", e))?;
+            metadata.id
+        } else {
+            mod_name.clone()
+        };
+
+        // Base directory: <mods_path>/mod_manager/<character_id>/
+        let base = Path::new(mods_path)
+            .join("mod_manager")
+            .join(character_id);
+
+        tokio::fs::create_dir_all(&base)
+            .await
+            .map_err(|e| format!("폴더 생성 실패: {}", e))?;
+
+        let dest = base.join(format!("DISABLED_{}", mod_id));
+        if dest.exists() {
+            return Err(format!("이미 동일한 이름의 모드가 존재합니다: {}", mod_id));
+        }
+
+        let enabled_dest = base.join(&mod_id);
+        if enabled_dest.exists() {
+            return Err(format!("이미 동일한 이름의 모드가 존재합니다: {}", mod_id));
+        }
+
+        // Recursive copy
+        copy_dir_recursive(&mod_content_dir, &dest).await?;
+
+        // Write mod.json if it doesn't exist
+        let dest_mod_json = dest.join("mod.json");
+        if !dest_mod_json.exists() {
+            let metadata = ModMetadata {
+                id: mod_id.clone(),
+                name: mod_name.clone(),
+                character_id: character_id.to_string(),
+                description: None,
+                author: None,
+                version: None,
+                tags: None,
+                preview: None,
+            };
+            let json = serde_json::to_string_pretty(&metadata)
+                .map_err(|e| format!("mod.json 생성 실패: {}", e))?;
+            tokio::fs::write(&dest_mod_json, json)
+                .await
+                .map_err(|e| format!("mod.json 쓰기 실패: {}", e))?;
+        }
+
+        // Return the imported mod (enabled=false)
+        read_mod_from_dir(&dest, character_id, false, &mod_id).await
+    } else {
+        Err("지원하지 않는 파일 형식입니다. ZIP 파일 또는 폴더를 선택하세요.".to_string())
+    }
 }
 
 pub async fn delete_mod(
