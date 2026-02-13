@@ -24,6 +24,11 @@ pub fn run() {
             commands::config::auto_detect_paths,
             commands::config::toggle_favorite_character,
             commands::config::toggle_favorite_mod,
+            commands::presets::get_presets,
+            commands::presets::create_preset,
+            commands::presets::delete_preset,
+            commands::presets::toggle_preset,
+            commands::presets::update_preset,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
