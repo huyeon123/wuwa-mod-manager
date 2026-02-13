@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import type { Mod } from "@/lib/types";
 import { ModCard } from "./ModCard";
 
@@ -14,6 +14,8 @@ interface ModListProps {
   loading: boolean;
   isDragging: boolean;
   onDropFiles: (paths: string[]) => void;
+  favoriteModIds: string[];
+  onToggleFavoriteMod: (mod: Mod) => void;
 }
 
 export function ModList({
@@ -28,9 +30,21 @@ export function ModList({
   loading,
   isDragging,
   onDropFiles: _onDropFiles,
+  favoriteModIds,
+  onToggleFavoriteMod,
 }: ModListProps) {
   const [showImportMenu, setShowImportMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const sortedMods = useMemo(() => {
+    return [...mods].sort((a, b) => {
+      const aFav = favoriteModIds.includes(a.id);
+      const bFav = favoriteModIds.includes(b.id);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+      return 0;
+    });
+  }, [mods, favoriteModIds]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -123,13 +137,15 @@ export function ModList({
         </div>
       ) : mods.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {mods.map((mod) => (
+          {sortedMods.map((mod) => (
             <ModCard
               key={mod.id}
               mod={mod}
               isSelected={selectedMod?.id === mod.id}
               onSelect={onSelectMod}
               onToggle={onToggleMod}
+              isFavorite={favoriteModIds.includes(mod.id)}
+              onToggleFavorite={onToggleFavoriteMod}
             />
           ))}
         </div>

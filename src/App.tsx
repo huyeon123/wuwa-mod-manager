@@ -25,6 +25,8 @@ import {
   setXxmiLauncherPath,
   launchXxmi,
   autoDetectPaths,
+  toggleFavoriteCharacter,
+  toggleFavoriteMod,
 } from "./lib/commands";
 
 type View = "characters" | "mods";
@@ -46,6 +48,8 @@ export function App() {
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "downloading" | "ready" | "latest" | "error">("idle");
   const [updateProgress, setUpdateProgress] = useState(0);
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  const [favoriteCharacterIds, setFavoriteCharacterIds] = useState<string[]>([]);
+  const [favoriteModIds, setFavoriteModIds] = useState<string[]>([]);
 
   const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
     const id = Date.now().toString();
@@ -71,6 +75,9 @@ export function App() {
         if (config.xxmiLauncherPath) {
           setXxmiLauncherPathState(config.xxmiLauncherPath);
         }
+        // Load favorites
+        setFavoriteCharacterIds(config.favoriteCharacters ?? []);
+        setFavoriteModIds(config.favoriteMods ?? []);
         // If no modsPath, redirect to settings
         if (!config.modsPath) {
           setActiveMenu("settings");
@@ -145,6 +152,27 @@ export function App() {
     setSelectedMod(null);
     setMods([]);
   }, []);
+
+  const handleToggleFavoriteCharacter = useCallback(async (characterId: string) => {
+    try {
+      const updatedConfig = await toggleFavoriteCharacter(characterId);
+      setFavoriteCharacterIds(updatedConfig.favoriteCharacters ?? []);
+    } catch (err) {
+      console.error("Failed to toggle favorite character:", err);
+      addToast("error", `즐겨찾기 변경 실패: ${err}`, true);
+    }
+  }, [addToast]);
+
+  const handleToggleFavoriteMod = useCallback(async (mod: Mod) => {
+    if (!selectedCharacterId) return;
+    try {
+      const updatedConfig = await toggleFavoriteMod(selectedCharacterId, mod.id);
+      setFavoriteModIds(updatedConfig.favoriteMods ?? []);
+    } catch (err) {
+      console.error("Failed to toggle favorite mod:", err);
+      addToast("error", `즐겨찾기 변경 실패: ${err}`, true);
+    }
+  }, [selectedCharacterId, addToast]);
 
   const handleSelectMod = useCallback((mod: Mod) => {
     setSelectedMod(mod);
@@ -489,6 +517,8 @@ export function App() {
           characters={characters}
           onSelect={handleSelectCharacter}
           modCounts={modCounts}
+          favoriteCharacterIds={favoriteCharacterIds}
+          onToggleFavoriteCharacter={handleToggleFavoriteCharacter}
         />
       );
     }
@@ -506,6 +536,10 @@ export function App() {
         loading={loading}
         isDragging={isDragging}
         onDropFiles={handleDropFiles}
+        favoriteModIds={favoriteModIds
+          .filter(id => id.startsWith(`${selectedCharacterId}/`))
+          .map(id => id.split("/").slice(1).join("/"))}
+        onToggleFavoriteMod={handleToggleFavoriteMod}
       />
     );
   };
@@ -529,6 +563,8 @@ export function App() {
             mod={selectedMod}
             onToggle={handleToggleMod}
             onDelete={handleDeleteMod}
+            isFavorite={favoriteModIds.includes(`${selectedCharacterId}/${selectedMod.id}`)}
+            onToggleFavorite={handleToggleFavoriteMod}
           />
         )}
       </AppShell>

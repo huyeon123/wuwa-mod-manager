@@ -77,3 +77,20 @@ pub async fn auto_detect_paths(app_handle: tauri::AppHandle) -> Result<(Option<S
 
     Ok((mods_path, xxmi_launcher_path))
 }
+
+#[tauri::command]
+pub async fn toggle_favorite_character(
+    character_id: String,
+    app_handle: tauri::AppHandle,
+) -> Result<AppConfig, String> {
+    config_manager::toggle_favorite_character(&character_id, &app_handle).await
+}
+
+#[tauri::command]
+pub async fn toggle_favorite_mod(
+    character_id: String,
+    mod_id: String,
+    app_handle: tauri::AppHandle,
+) -> Result<AppConfig, String> {
+    config_manager::toggle_favorite_mod(&character_id, &mod_id, &app_handle).await
+}
