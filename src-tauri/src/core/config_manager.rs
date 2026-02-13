@@ -220,3 +220,13 @@ pub async fn toggle_favorite_mod(
     save_config(&config, app_handle).await?;
     Ok(config)
 }
+
+pub async fn set_auto_launch_game(
+    enabled: bool,
+    app_handle: &tauri::AppHandle,
+) -> Result<AppConfig, String> {
+    let mut config = load_config(app_handle).await?;
+    config.auto_launch_game = enabled;
+    save_config(&config, app_handle).await?;
+    Ok(config)
+}
