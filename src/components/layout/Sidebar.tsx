@@ -50,6 +50,9 @@ interface SidebarProps {
   onLaunchXxmi?: () => void;
   xxmiLauncherPath?: string | null;
   totalEnabledMods: number;
+  totalMods: number;
+  presetCount: number;
+  activePresetCount: number;
 }
 
 export function Sidebar({
@@ -62,6 +65,9 @@ export function Sidebar({
   onLaunchXxmi,
   xxmiLauncherPath,
   totalEnabledMods,
+  totalMods,
+  presetCount,
+  activePresetCount,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [charSearch, setCharSearch] = useState("");
@@ -97,8 +103,17 @@ export function Sidebar({
       }`}
     >
       <div className={`mb-4 ${collapsed ? "" : "px-4"}`}>
-        <div className="w-9 h-9 rounded-lg bg-neon/20 flex items-center justify-center text-neon font-bold text-sm">
-          W
+        <div className="flex items-center gap-2.5">
+          <img
+            src="/app-icon.png"
+            alt="WuWa Mod Manager"
+            className="w-9 h-9 rounded-lg flex-shrink-0"
+          />
+          {!collapsed && (
+            <span className="text-sm font-bold text-text-primary whitespace-nowrap leading-tight">
+              WuWa<br />Mod Manager
+            </span>
+          )}
         </div>
       </div>
       <nav className={`flex flex-col gap-1 flex-1 w-full ${collapsed ? "px-2" : "px-3"}`}>
@@ -119,11 +134,18 @@ export function Sidebar({
             >
               {item.icon}
               {!collapsed && (
-                <span className="text-sm font-medium flex-1 text-left whitespace-nowrap">
+                <span className="text-sm font-medium flex-1 text-left whitespace-nowrap flex items-center">
                   {item.label}
-                  {item.id === "mods" && totalEnabledMods > 0 && (
-                    <span className="ml-1.5 text-xs text-neon font-normal">
-                      {totalEnabledMods}
+                  {item.id === "mods" && (
+                    <span className="ml-1.5 text-xs font-normal inline-flex items-center">
+                      <span className="text-neon">{totalEnabledMods}</span>
+                      <span className="text-text-muted">/{totalMods}</span>
+                    </span>
+                  )}
+                  {item.id === "presets" && presetCount > 0 && (
+                    <span className="ml-1.5 text-xs font-normal inline-flex items-center">
+                      <span className="text-neon">{activePresetCount}</span>
+                      <span className="text-text-muted">/{presetCount}</span>
                     </span>
                   )}
                 </span>
@@ -202,23 +224,6 @@ export function Sidebar({
             )}
           </button>
         )}
-        {/* Report issue button */}
-        <button
-          onClick={() => window.open("https://github.com/huyeon123/wuwa-mod-manager/issues/new/choose", "_blank")}
-          title={collapsed ? "문제 신고하기" : undefined}
-          className={`rounded-lg flex items-center transition-all duration-200 w-full text-text-muted hover:bg-background-hover hover:text-text-primary ${
-            collapsed
-              ? "h-12 justify-center"
-              : "h-11 px-3 gap-3 justify-start"
-          }`}
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-          </svg>
-          {!collapsed && (
-            <span className="text-sm font-medium whitespace-nowrap">문제 신고하기</span>
-          )}
-        </button>
         <button
           onClick={() => setCollapsed(!collapsed)}
           title={collapsed ? "펼치기" : "접기"}
