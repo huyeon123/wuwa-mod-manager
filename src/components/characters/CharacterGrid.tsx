@@ -5,6 +5,8 @@ interface CharacterGridProps {
   characters: Character[];
   onSelect: (id: string) => void;
   modCounts: Record<string, [number, number]>;
+  favoriteCharacterIds: string[];
+  onToggleFavoriteCharacter: (characterId: string) => void;
 }
 
 const ELEMENT_ORDER = ["기류", "용융", "응결", "인멸", "전도", "회절"] as const;
@@ -20,7 +22,7 @@ const ELEMENT_LABELS: Record<string, string> = {
 
 type SortKey = "name" | "element";
 
-export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGridProps) {
+export function CharacterGrid({ characters, onSelect, modCounts, favoriteCharacterIds, onToggleFavoriteCharacter }: CharacterGridProps) {
   const [sortBy, setSortBy] = useState<SortKey>("element");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -35,9 +37,16 @@ export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGrid
   }, [characters, searchQuery]);
 
   const grouped = useMemo(() => {
+    // 즐겨찾기 그룹 생성
+    const favoriteChars = filtered.filter(c => favoriteCharacterIds.includes(c.id))
+      .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+
     if (sortBy === "name") {
       const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name, "ko"));
-      return [{ element: null, label: null, characters: sorted }];
+      return [
+        ...(favoriteChars.length > 0 ? [{ element: "즐겨찾기", label: "Favorites", characters: favoriteChars }] : []),
+        { element: null, label: null, characters: sorted },
+      ];
     }
 
     // 1. 방랑자 그룹
@@ -58,11 +67,12 @@ export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGrid
 
     // 합치기
     return [
+      ...(favoriteChars.length > 0 ? [{ element: "즐겨찾기", label: "Favorites", characters: favoriteChars }] : []),
       ...(rovers.length > 0 ? [{ element: "방랑자", label: "Rover", characters: rovers }] : []),
       ...elementGroups,
       ...(others.length > 0 ? [{ element: "기타", label: "Others", characters: others }] : []),
     ];
-  }, [filtered, sortBy]);
+  }, [filtered, sortBy, favoriteCharacterIds]);
 
   return (
     <main className="flex-1 overflow-y-auto p-6">
@@ -126,7 +136,11 @@ export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGrid
           <section key={group.element ?? "all"}>
             {group.element && (
               <div className="flex items-center gap-2 mb-3">
-                {["기류", "용융", "응결", "인멸", "전도", "회절"].includes(group.element) && (
+                {group.element === "즐겨찾기" ? (
+                  <svg className="w-5 h-5 text-yellow-400" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth={1}>
+                    <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                  </svg>
+                ) : ["기류", "용융", "응결", "인멸", "전도", "회절"].includes(group.element) && (
                   <img
                     src={`/elements/ic_${group.element}.png`}
                     alt={group.element}
@@ -146,11 +160,34 @@ export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGrid
             )}
             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {group.characters.map((character) => (
-                <button
+                <div
                   key={character.id}
                   onClick={() => onSelect(character.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSelect(character.id);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
                   className="group relative flex flex-col items-center gap-2 p-4 rounded-xl border border-white/10 bg-white/5 hover:border-neon/40 hover:bg-neon/5 hover:shadow-[0_0_20px_rgba(53,243,229,0.1)] transition-all duration-200 cursor-pointer"
                 >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFavoriteCharacter(character.id);
+                    }}
+                    className={`absolute top-2 left-2 w-6 h-6 flex items-center justify-center rounded-full transition-all duration-200 z-10 ${
+                      favoriteCharacterIds.includes(character.id)
+                        ? "text-yellow-400 bg-yellow-400/20"
+                        : "text-text-muted/40 hover:text-yellow-400/70 bg-transparent hover:bg-white/10 opacity-0 group-hover:opacity-100"
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill={favoriteCharacterIds.includes(character.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                    </svg>
+                  </button>
                   <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-background-card border border-white/10 text-[11px] font-medium leading-none z-10">
                     <span className="text-neon">{modCounts[character.id]?.[0] ?? 0}</span>
                     <span className="text-text-muted">/{modCounts[character.id]?.[1] ?? 0}</span>
@@ -180,7 +217,7 @@ export function CharacterGrid({ characters, onSelect, modCounts }: CharacterGrid
                       className="absolute bottom-2 right-2 w-5 h-5"
                     />
                   )}
-                </button>
+                </div>
               ))}
             </div>
           </section>

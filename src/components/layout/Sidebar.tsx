@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Character } from "@/lib/types";
 
-type MenuId = "mods" | "settings";
+type MenuId = "mods" | "presets" | "settings";
 
 interface MenuItem {
   id: MenuId;
@@ -16,6 +16,15 @@ const MENU_ITEMS: MenuItem[] = [
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+      </svg>
+    ),
+  },
+  {
+    id: "presets",
+    label: "프리셋",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L12 12.75l-5.571-3m11.142 0l4.179 2.25L12 17.25l-9.75-5.25 4.179-2.25m11.142 0l4.179 2.25L12 21.75l-9.75-5.25 4.179-2.25" />
       </svg>
     ),
   },
@@ -40,6 +49,10 @@ interface SidebarProps {
   onSelectCharacter: (id: string) => void;
   onLaunchXxmi?: () => void;
   xxmiLauncherPath?: string | null;
+  totalEnabledMods: number;
+  totalMods: number;
+  presetCount: number;
+  activePresetCount: number;
 }
 
 export function Sidebar({
@@ -51,6 +64,10 @@ export function Sidebar({
   onSelectCharacter,
   onLaunchXxmi,
   xxmiLauncherPath,
+  totalEnabledMods,
+  totalMods,
+  presetCount,
+  activePresetCount,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [charSearch, setCharSearch] = useState("");
@@ -86,8 +103,17 @@ export function Sidebar({
       }`}
     >
       <div className={`mb-4 ${collapsed ? "" : "px-4"}`}>
-        <div className="w-9 h-9 rounded-lg bg-neon/20 flex items-center justify-center text-neon font-bold text-sm">
-          W
+        <div className="flex items-center gap-2.5">
+          <img
+            src="/app-icon.png"
+            alt="WuWa Mod Manager"
+            className="w-9 h-9 rounded-lg flex-shrink-0"
+          />
+          {!collapsed && (
+            <span className="text-sm font-bold text-text-primary whitespace-nowrap leading-tight">
+              WuWa<br />Mod Manager
+            </span>
+          )}
         </div>
       </div>
       <nav className={`flex flex-col gap-1 flex-1 w-full ${collapsed ? "px-2" : "px-3"}`}>
@@ -108,7 +134,21 @@ export function Sidebar({
             >
               {item.icon}
               {!collapsed && (
-                <span className="text-sm font-medium flex-1 text-left whitespace-nowrap">{item.label}</span>
+                <span className="text-sm font-medium flex-1 text-left whitespace-nowrap flex items-center">
+                  {item.label}
+                  {item.id === "mods" && (
+                    <span className="ml-1.5 text-xs font-normal inline-flex items-center">
+                      <span className="text-neon">{totalEnabledMods}</span>
+                      <span className="text-text-muted">/{totalMods}</span>
+                    </span>
+                  )}
+                  {item.id === "presets" && presetCount > 0 && (
+                    <span className="ml-1.5 text-xs font-normal inline-flex items-center">
+                      <span className="text-neon">{activePresetCount}</span>
+                      <span className="text-text-muted">/{presetCount}</span>
+                    </span>
+                  )}
+                </span>
               )}
               {!collapsed && item.id === "mods" && showDropdown && (
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

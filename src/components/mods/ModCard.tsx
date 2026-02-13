@@ -6,9 +6,11 @@ interface ModCardProps {
   isSelected: boolean;
   onSelect: (mod: Mod) => void;
   onToggle: (mod: Mod) => void;
+  isFavorite: boolean;
+  onToggleFavorite: (mod: Mod) => void;
 }
 
-export function ModCard({ mod, isSelected, onSelect, onToggle }: ModCardProps) {
+export function ModCard({ mod, isSelected, onSelect, onToggle, isFavorite, onToggleFavorite }: ModCardProps) {
   return (
     <div
       onClick={() => onSelect(mod)}
@@ -18,6 +20,23 @@ export function ModCard({ mod, isSelected, onSelect, onToggle }: ModCardProps) {
           : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8"
       }`}
     >
+      {/* Favorite Button - 왼쪽 상단 */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite(mod);
+        }}
+        className={`absolute top-2 left-2 w-7 h-7 flex items-center justify-center rounded-full transition-all duration-200 z-10 ${
+          isFavorite
+            ? "text-yellow-400 bg-yellow-400/20"
+            : "text-text-muted/40 hover:text-yellow-400/70 bg-black/40 hover:bg-black/60 opacity-0 group-hover:opacity-100"
+        }`}
+      >
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+        </svg>
+      </button>
+
       {/* Preview Image */}
       <div className="aspect-[3/4] w-full rounded-lg bg-background-card mb-3 overflow-hidden">
         {mod.preview && mod.preview.length > 0 ? (

@@ -11,7 +11,8 @@
   },
   "bundle": {
     "targets": ["nsis"],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "icon": ["icons/icon.ico"]
   },
   "app": {
     "windows": [
