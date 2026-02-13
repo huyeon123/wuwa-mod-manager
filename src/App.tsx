@@ -33,6 +33,7 @@ import {
   createPreset,
   deletePreset as deletePresetCmd,
   togglePreset,
+  updatePreset,
 } from "./lib/commands";
 
 type View = "characters" | "mods";
@@ -58,6 +59,7 @@ export function App() {
   const [favoriteModIds, setFavoriteModIds] = useState<string[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [showPresetModal, setShowPresetModal] = useState(false);
+  const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
 
   const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
     const id = Date.now().toString();
@@ -454,6 +456,25 @@ export function App() {
     }
   }, [addToast]);
 
+  const handleUpdatePreset = useCallback(async (name: string, mods: PresetMod[]) => {
+    if (!editingPreset) return;
+    try {
+      const updated = await updatePreset(editingPreset.id, name, mods);
+      setPresets(prev => prev.map(p => p.id === updated.id ? updated : p));
+      setEditingPreset(null);
+      setShowPresetModal(false);
+      addToast("success", `프리셋 "${name}"이(가) 수정되었습니다`);
+    } catch (err) {
+      console.error("Failed to update preset:", err);
+      addToast("error", `프리셋 수정 실패: ${err}`, true);
+    }
+  }, [editingPreset, addToast]);
+
+  const handleEditPreset = useCallback((preset: Preset) => {
+    setEditingPreset(preset);
+    setShowPresetModal(true);
+  }, []);
+
   const renderContent = () => {
     if (activeMenu === "settings") {
       return (
@@ -564,7 +585,8 @@ export function App() {
           characters={characters}
           onTogglePreset={handleTogglePreset}
           onDeletePreset={handleDeletePreset}
-          onCreatePreset={() => setShowPresetModal(true)}
+          onCreatePreset={() => { setEditingPreset(null); setShowPresetModal(true); }}
+          onEditPreset={handleEditPreset}
           modsPath={modsPath}
         />
       );
@@ -631,9 +653,13 @@ export function App() {
         <PresetCreateModal
           characters={characters}
           modsPath={modsPath}
-          onClose={() => setShowPresetModal(false)}
-          onSubmit={handleCreatePreset}
+          onClose={() => {
+            setShowPresetModal(false);
+            setEditingPreset(null);
+          }}
+          onSubmit={editingPreset ? handleUpdatePreset : handleCreatePreset}
           getMods={getMods}
+          editPreset={editingPreset ?? undefined}
         />
       )}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
