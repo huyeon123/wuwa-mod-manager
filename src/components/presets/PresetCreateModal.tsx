@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useRef } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import type { Character, Mod, PresetMod } from "@/lib/types";
+import type { Character, Mod, Preset, PresetMod } from "@/lib/types";
 
 interface PresetCreateModalProps {
   characters: Character[];
@@ -8,6 +8,7 @@ interface PresetCreateModalProps {
   onClose: () => void;
   onSubmit: (name: string, mods: PresetMod[]) => void;
   getMods: (characterId: string, modsPath: string) => Promise<Mod[]>;
+  editPreset?: Preset;
 }
 
 export function PresetCreateModal({
@@ -16,13 +17,14 @@ export function PresetCreateModal({
   onClose,
   onSubmit,
   getMods,
+  editPreset,
 }: PresetCreateModalProps) {
-  const [presetName, setPresetName] = useState("");
+  const [presetName, setPresetName] = useState(editPreset?.name ?? "");
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
     null,
   );
   const [characterMods, setCharacterMods] = useState<Record<string, Mod[]>>({});
-  const [selectedMods, setSelectedMods] = useState<PresetMod[]>([]);
+  const [selectedMods, setSelectedMods] = useState<PresetMod[]>(editPreset?.mods ?? []);
   const [loadingMods, setLoadingMods] = useState(false);
   const [previewMod, setPreviewMod] = useState<Mod | null>(null);
   const [characterSearch, setCharacterSearch] = useState("");
@@ -142,7 +144,7 @@ export function PresetCreateModal({
         <div className="p-6 pb-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-text-primary">
-              프리셋 추가
+              {editPreset ? "프리셋 수정" : "프리셋 추가"}
             </h2>
             <button
               onClick={onClose}
@@ -392,7 +394,7 @@ export function PresetCreateModal({
               disabled={!canSubmit}
               className="px-4 py-2 rounded-lg text-sm font-medium bg-neon/10 text-neon border border-neon/30 hover:bg-neon/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              추가
+              {editPreset ? "수정" : "추가"}
             </button>
           </div>
         </div>
