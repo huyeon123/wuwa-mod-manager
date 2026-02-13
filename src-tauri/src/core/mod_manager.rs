@@ -568,22 +568,12 @@ pub async fn preview_import_source(source_path: &str) -> Result<ImportPreviewDat
 
             let image_extensions = ["png", "jpg", "jpeg"];
             let mut images: Vec<String> = Vec::new();
-            let mut root_dir_name: Option<String> = None;
 
             for i in 0..archive.len() {
                 let mut entry = archive.by_index(i)
                     .map_err(|e| format!("ZIP 엔트리 읽기 실패: {}", e))?;
 
                 let entry_name = entry.name().to_string();
-
-                // Detect root directory name (first path component)
-                if root_dir_name.is_none() {
-                    if let Some(first_component) = entry_name.split('/').next() {
-                        if !first_component.is_empty() {
-                            root_dir_name = Some(first_component.to_string());
-                        }
-                    }
-                }
 
                 // Check if this entry is an image file
                 if entry.is_file() {
@@ -618,11 +608,9 @@ pub async fn preview_import_source(source_path: &str) -> Result<ImportPreviewDat
                 }
             });
 
-            let name = root_dir_name.unwrap_or_else(|| {
-                zip_path.file_stem()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_else(|| "unknown_mod".to_string())
-            });
+            let name = zip_path.file_stem()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "unknown_mod".to_string());
 
             Ok::<(String, Vec<String>), String>((name, images))
         }).await
