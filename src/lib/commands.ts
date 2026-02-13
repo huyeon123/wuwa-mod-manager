@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Character, Mod, AppConfig, Preset, PresetMod } from "./types";
+import type { Character, Mod, AppConfig, Preset, PresetMod, ImportPreviewData } from "./types";
 
 export async function getCharacters(): Promise<Character[]> {
   return invoke<Character[]>("get_characters");
@@ -29,8 +29,9 @@ export async function importMod(
   sourcePath: string,
   characterId: string,
   modsPath: string,
+  customName?: string,
 ): Promise<Mod> {
-  return invoke<Mod>("import_mod", { sourcePath, characterId, modsPath });
+  return invoke<Mod>("import_mod", { sourcePath, characterId, modsPath, customName: customName ?? null });
 }
 
 export async function deleteMod(
@@ -91,4 +92,12 @@ export async function togglePreset(presetId: string, enable: boolean, modsPath: 
 
 export async function updatePreset(presetId: string, name?: string, mods?: PresetMod[]): Promise<Preset> {
   return invoke<Preset>("update_preset", { presetId, name, mods });
+}
+
+export async function previewImport(sourcePath: string): Promise<ImportPreviewData> {
+  return invoke<ImportPreviewData>("preview_import", { sourcePath });
+}
+
+export async function cleanupImportTemp(tempDir: string): Promise<void> {
+  return invoke<void>("cleanup_import_temp", { tempDir });
 }
