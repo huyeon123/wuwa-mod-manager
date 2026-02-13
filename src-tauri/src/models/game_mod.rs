@@ -36,3 +36,11 @@ pub struct ModMetadata {
     pub tags: Option<Vec<String>>,
     pub preview: Option<Vec<String>>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportPreviewData {
+    pub default_name: String,
+    pub preview_images: Vec<String>,
+    pub temp_dir: Option<String>,
+}
