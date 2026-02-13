@@ -17,6 +17,8 @@ pub fn run() {
             commands::mods::import_mod,
             commands::mods::delete_mod,
             commands::mods::get_mod_counts,
+            commands::mods::preview_import,
+            commands::mods::cleanup_import_temp,
             commands::config::get_config,
             commands::config::set_mods_path,
             commands::config::set_xxmi_launcher_path,

@@ -4,6 +4,6 @@ mod config;
 pub mod preset;
 
 pub use character::Character;
-pub use game_mod::GameMod;
+pub use game_mod::{GameMod, ImportPreviewData};
 pub use config::AppConfig;
 pub use preset::{Preset, PresetMod};

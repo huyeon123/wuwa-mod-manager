@@ -160,9 +160,17 @@ export function CharacterGrid({ characters, onSelect, modCounts, favoriteCharact
             )}
             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {group.characters.map((character) => (
-                <button
+                <div
                   key={character.id}
                   onClick={() => onSelect(character.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSelect(character.id);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
                   className="group relative flex flex-col items-center gap-2 p-4 rounded-xl border border-white/10 bg-white/5 hover:border-neon/40 hover:bg-neon/5 hover:shadow-[0_0_20px_rgba(53,243,229,0.1)] transition-all duration-200 cursor-pointer"
                 >
                   <button
@@ -209,7 +217,7 @@ export function CharacterGrid({ characters, onSelect, modCounts, favoriteCharact
                       className="absolute bottom-2 right-2 w-5 h-5"
                     />
                   )}
-                </button>
+                </div>
               ))}
             </div>
           </section>

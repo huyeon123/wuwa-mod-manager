@@ -10,9 +10,10 @@ import type { MenuId } from "./components/layout/Sidebar";
 import { CharacterGrid } from "./components/characters/CharacterGrid";
 import { ModList } from "./components/mods/ModList";
 import { ModDetailPanel } from "./components/mods/ModDetailPanel";
+import { ModImportModal } from "./components/mods/ModImportModal";
 import { PresetList } from "./components/presets/PresetList";
 import { PresetCreateModal } from "./components/presets/PresetCreateModal";
-import type { Character, Mod, Preset, PresetMod } from "./lib/types";
+import type { Character, Mod, Preset, PresetMod, ImportPreviewData } from "./lib/types";
 import { ToastContainer, type ToastData } from "./components/ui/Toast";
 import {
   getCharacters,
@@ -34,6 +35,8 @@ import {
   deletePreset as deletePresetCmd,
   togglePreset,
   updatePreset,
+  previewImport,
+  cleanupImportTemp,
 } from "./lib/commands";
 
 type View = "characters" | "mods";
@@ -60,6 +63,10 @@ export function App() {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importSourcePath, setImportSourcePath] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
     const id = Date.now().toString();
@@ -223,14 +230,23 @@ export function App() {
         title: "모드 ZIP 파일을 선택하세요",
       });
       if (!selected) return;
-      await importMod(selected, selectedCharacterId, modsPath);
-      await loadMods(selectedCharacterId);
-      getModCounts(modsPath).then(setModCounts).catch(console.error);
+      let preview: ImportPreviewData;
+      try {
+        preview = await previewImport(selected);
+      } catch {
+        // Fallback: extract name from path
+        const fileName = selected.split(/[/\\]/).pop() ?? "unknown_mod";
+        const defaultName = fileName.replace(/\.zip$/i, "");
+        preview = { defaultName, previewImages: [], tempDir: null };
+      }
+      setImportPreview(preview);
+      setImportSourcePath(selected);
+      setShowImportModal(true);
     } catch (err) {
       console.error("Failed to import mod:", err);
       addToast("error", `모드 가져오기 실패: ${err}`, true);
     }
-  }, [modsPath, selectedCharacterId, loadMods, addToast]);
+  }, [modsPath, selectedCharacterId, addToast]);
 
   const handleImportModFolder = useCallback(async () => {
     if (!modsPath || !selectedCharacterId) return;
@@ -241,27 +257,87 @@ export function App() {
         title: "모드 폴더를 선택하세요",
       });
       if (!selected) return;
-      await importMod(selected, selectedCharacterId, modsPath);
-      await loadMods(selectedCharacterId);
-      getModCounts(modsPath).then(setModCounts).catch(console.error);
+      let preview: ImportPreviewData;
+      try {
+        preview = await previewImport(selected);
+      } catch {
+        const defaultName = selected.split(/[/\\]/).pop() ?? "unknown_mod";
+        preview = { defaultName, previewImages: [], tempDir: null };
+      }
+      setImportPreview(preview);
+      setImportSourcePath(selected);
+      setShowImportModal(true);
     } catch (err) {
       console.error("Failed to import mod:", err);
       addToast("error", `모드 가져오기 실패: ${err}`, true);
     }
-  }, [modsPath, selectedCharacterId, loadMods, addToast]);
+  }, [modsPath, selectedCharacterId, addToast]);
+
+  const handleConfirmImport = useCallback(async (customName: string) => {
+    if (!modsPath || !selectedCharacterId || !importSourcePath) return;
+    setIsImporting(true);
+    try {
+      await importMod(importSourcePath, selectedCharacterId, modsPath, customName);
+      await loadMods(selectedCharacterId);
+      getModCounts(modsPath).then(setModCounts).catch(console.error);
+      addToast("success", `모드 "${customName}"을(를) 가져왔습니다`);
+    } catch (err) {
+      console.error("Failed to import mod:", err);
+      addToast("error", `모드 가져오기 실패: ${err}`, true);
+    } finally {
+      setIsImporting(false);
+      // Cleanup temp dir if exists
+      if (importPreview?.tempDir) {
+        cleanupImportTemp(importPreview.tempDir).catch(console.error);
+      }
+      setShowImportModal(false);
+      setImportPreview(null);
+      setImportSourcePath(null);
+    }
+  }, [modsPath, selectedCharacterId, importSourcePath, importPreview, loadMods, addToast]);
+
+  const handleCancelImport = useCallback(() => {
+    if (importPreview?.tempDir) {
+      cleanupImportTemp(importPreview.tempDir).catch(console.error);
+    }
+    setShowImportModal(false);
+    setImportPreview(null);
+    setImportSourcePath(null);
+  }, [importPreview]);
 
   const handleDropFiles = useCallback(async (paths: string[]) => {
     if (!modsPath || !selectedCharacterId) return;
-    for (const filePath of paths) {
+    if (paths.length === 1) {
+      // Single file: show preview modal
       try {
-        await importMod(filePath, selectedCharacterId, modsPath);
+        let preview: ImportPreviewData;
+        try {
+          preview = await previewImport(paths[0]!);
+        } catch {
+          const fileName = paths[0]!.split(/[/\\]/).pop() ?? "unknown_mod";
+          const defaultName = fileName.replace(/\.zip$/i, "");
+          preview = { defaultName, previewImages: [], tempDir: null };
+        }
+        setImportPreview(preview);
+        setImportSourcePath(paths[0]!);
+        setShowImportModal(true);
       } catch (err) {
-        console.error("Failed to import dropped mod:", err);
+        console.error("Failed to import mod:", err);
         addToast("error", `모드 가져오기 실패: ${err}`, true);
       }
+    } else {
+      // Multiple files: import directly without modal
+      for (const filePath of paths) {
+        try {
+          await importMod(filePath, selectedCharacterId, modsPath);
+        } catch (err) {
+          console.error("Failed to import dropped mod:", err);
+          addToast("error", `모드 가져오기 실패: ${err}`, true);
+        }
+      }
+      await loadMods(selectedCharacterId);
+      getModCounts(modsPath).then(setModCounts).catch(console.error);
     }
-    await loadMods(selectedCharacterId);
-    getModCounts(modsPath).then(setModCounts).catch(console.error);
   }, [modsPath, selectedCharacterId, loadMods, addToast]);
 
   // Register Tauri drag-drop event listener
@@ -660,6 +736,15 @@ export function App() {
           onSubmit={editingPreset ? handleUpdatePreset : handleCreatePreset}
           getMods={getMods}
           editPreset={editingPreset ?? undefined}
+        />
+      )}
+      {showImportModal && importPreview && (
+        <ModImportModal
+          defaultName={importPreview.defaultName}
+          previewImages={importPreview.previewImages}
+          isImporting={isImporting}
+          onConfirm={handleConfirmImport}
+          onCancel={handleCancelImport}
         />
       )}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />

@@ -28,6 +28,12 @@ export interface Mod {
   keybindings?: ModKeybinding[];
 }
 
+export interface ImportPreviewData {
+  defaultName: string;
+  previewImages: string[];
+  tempDir: string | null;
+}
+
 export interface PresetMod {
   characterId: string;
   modId: string;
