@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Character, Mod, PresetMod } from "@/lib/types";
 
 interface PresetCreateModalProps {
@@ -23,9 +24,37 @@ export function PresetCreateModal({
   const [characterMods, setCharacterMods] = useState<Record<string, Mod[]>>({});
   const [selectedMods, setSelectedMods] = useState<PresetMod[]>([]);
   const [loadingMods, setLoadingMods] = useState(false);
+  const [previewMod, setPreviewMod] = useState<Mod | null>(null);
+  const [characterSearch, setCharacterSearch] = useState("");
+  const [modSearch, setModSearch] = useState("");
+  const [previewWidth, setPreviewWidth] = useState(280);
+  const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startWidth: previewWidth };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragRef.current) return;
+      const delta = dragRef.current.startX - e.clientX;
+      const newWidth = Math.min(500, Math.max(150, dragRef.current.startWidth + delta));
+      setPreviewWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      dragRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [previewWidth]);
 
   const handleSelectCharacter = useCallback(
     async (characterId: string) => {
+      setPreviewMod(null);
+      setModSearch("");
       setSelectedCharacterId(characterId);
       if (!characterMods[characterId]) {
         setLoadingMods(true);
@@ -77,9 +106,27 @@ export function PresetCreateModal({
 
   const canSubmit = presetName.trim().length > 0 && selectedMods.length > 0;
 
+  const filteredCharacters = useMemo(() => {
+    if (!characterSearch.trim()) return characters;
+    const q = characterSearch.trim().toLowerCase();
+    return characters.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.nameEn.toLowerCase().includes(q),
+    );
+  }, [characters, characterSearch]);
+
   const currentMods = selectedCharacterId
     ? (characterMods[selectedCharacterId] ?? [])
     : [];
+
+  const filteredMods = useMemo(() => {
+    if (!modSearch.trim()) return currentMods;
+    const q = modSearch.trim().toLowerCase();
+    return currentMods.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.author?.toLowerCase().includes(q) ?? false),
+    );
+  }, [currentMods, modSearch]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -90,7 +137,7 @@ export function PresetCreateModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-3xl max-h-[80vh] mx-4 rounded-2xl border border-white/10 bg-background shadow-2xl flex flex-col overflow-hidden">
+      <div className="relative w-full max-w-5xl max-h-[80vh] mx-4 rounded-2xl border border-white/10 bg-background shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-6 pb-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-4">
@@ -126,11 +173,21 @@ export function PresetCreateModal({
           />
         </div>
 
-        {/* Body - 2-column layout */}
+        {/* Body - 3-column layout */}
         <div className="flex flex-1 min-h-0">
           {/* Left: Character List */}
-          <div className="w-1/3 border-r border-white/10 overflow-y-auto p-3 space-y-0.5">
-            {characters.map((character) => {
+          <div className="w-1/4 border-r border-white/10 flex flex-col">
+            <div className="p-2 border-b border-white/5">
+              <input
+                type="text"
+                value={characterSearch}
+                onChange={(e) => setCharacterSearch(e.target.value)}
+                placeholder="캐릭터 검색"
+                className="w-full px-2.5 py-1.5 rounded-md border border-white/10 bg-white/5 text-text-primary placeholder:text-text-muted text-xs focus:outline-none focus:border-neon/40 transition-colors"
+              />
+            </div>
+            <div className="overflow-y-auto p-3 space-y-0.5 flex-1">
+            {filteredCharacters.map((character) => {
               const count = getSelectedCountForCharacter(character.id);
               return (
                 <button
@@ -158,10 +215,23 @@ export function PresetCreateModal({
                 </button>
               );
             })}
+            </div>
           </div>
 
-          {/* Right: Mod Selection */}
-          <div className="w-2/3 overflow-y-auto p-4">
+          {/* Middle: Mod Selection */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {selectedCharacterId && !loadingMods && currentMods.length > 0 && (
+              <div className="p-2 border-b border-white/5">
+                <input
+                  type="text"
+                  value={modSearch}
+                  onChange={(e) => setModSearch(e.target.value)}
+                  placeholder="모드 검색"
+                  className="w-full px-2.5 py-1.5 rounded-md border border-white/10 bg-white/5 text-text-primary placeholder:text-text-muted text-xs focus:outline-none focus:border-neon/40 transition-colors"
+                />
+              </div>
+            )}
+            <div className="overflow-y-auto p-4 flex-1">
             {!selectedCharacterId ? (
               <div className="flex items-center justify-center h-full text-text-muted text-sm">
                 캐릭터를 선택하세요
@@ -170,17 +240,18 @@ export function PresetCreateModal({
               <div className="flex items-center justify-center h-full text-text-muted text-sm">
                 모드를 불러오는 중...
               </div>
-            ) : currentMods.length === 0 ? (
+            ) : filteredMods.length === 0 ? (
               <div className="flex items-center justify-center h-full text-text-muted text-sm">
                 등록된 모드가 없습니다
               </div>
             ) : (
               <div className="space-y-1">
-                {currentMods.map((mod) => {
+                {filteredMods.map((mod) => {
                   const checked = isModSelected(selectedCharacterId, mod.id);
                   return (
                     <label
                       key={mod.id}
+                      onClick={() => setPreviewMod(mod)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
                         checked
                           ? "bg-neon/5 border border-neon/30"
@@ -240,6 +311,60 @@ export function PresetCreateModal({
                     </label>
                   );
                 })}
+              </div>
+            )}
+            </div>
+          </div>
+
+          {/* Drag Handle */}
+          <div
+            onMouseDown={handleDragStart}
+            className="w-1.5 bg-white/5 hover:bg-neon/20 cursor-col-resize flex items-center justify-center transition-colors flex-shrink-0"
+          >
+            <div className="h-8 w-0.5 rounded-full bg-white/20" />
+          </div>
+
+          {/* Right: Preview */}
+          <div className="overflow-y-auto p-4 flex flex-col flex-shrink-0" style={{ width: `${previewWidth}px` }}>
+            {previewMod && previewMod.preview && previewMod.preview.length > 0 ? (
+              <div className="space-y-3">
+                <div className="rounded-lg overflow-hidden bg-white/5">
+                  <img
+                    src={convertFileSrc(previewMod.preview[0]!)}
+                    alt={previewMod.name}
+                    className="w-full h-auto object-contain max-h-[300px]"
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-text-primary">{previewMod.name}</p>
+                  {previewMod.author && (
+                    <p className="text-xs text-text-muted mt-0.5">by {previewMod.author}</p>
+                  )}
+                  {previewMod.description && (
+                    <p className="text-xs text-text-secondary mt-2">{previewMod.description}</p>
+                  )}
+                </div>
+                {previewMod.preview.length > 1 && (
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {previewMod.preview.slice(1).map((p, i) => (
+                      <div key={i} className="rounded overflow-hidden bg-white/5 aspect-square">
+                        <img
+                          src={convertFileSrc(p)}
+                          alt={`${previewMod.name} preview ${i + 2}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : previewMod ? (
+              <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
+                미리보기 없음
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
+                모드를 선택하면 미리보기가 표시됩니다
               </div>
             )}
           </div>
