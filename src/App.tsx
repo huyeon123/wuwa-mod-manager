@@ -229,13 +229,21 @@ export function App() {
         title: "모드 ZIP 파일을 선택하세요",
       });
       if (!selected) return;
-      const preview = await previewImport(selected);
+      let preview: ImportPreviewData;
+      try {
+        preview = await previewImport(selected);
+      } catch {
+        // Fallback: extract name from path
+        const fileName = selected.split(/[/\\]/).pop() ?? "unknown_mod";
+        const defaultName = fileName.replace(/\.zip$/i, "");
+        preview = { defaultName, previewImages: [], tempDir: null };
+      }
       setImportPreview(preview);
       setImportSourcePath(selected);
       setShowImportModal(true);
     } catch (err) {
-      console.error("Failed to preview import:", err);
-      addToast("error", `모드 미리보기 실패: ${err}`, true);
+      console.error("Failed to import mod:", err);
+      addToast("error", `모드 가져오기 실패: ${err}`, true);
     }
   }, [modsPath, selectedCharacterId, addToast]);
 
@@ -248,13 +256,19 @@ export function App() {
         title: "모드 폴더를 선택하세요",
       });
       if (!selected) return;
-      const preview = await previewImport(selected);
+      let preview: ImportPreviewData;
+      try {
+        preview = await previewImport(selected);
+      } catch {
+        const defaultName = selected.split(/[/\\]/).pop() ?? "unknown_mod";
+        preview = { defaultName, previewImages: [], tempDir: null };
+      }
       setImportPreview(preview);
       setImportSourcePath(selected);
       setShowImportModal(true);
     } catch (err) {
-      console.error("Failed to preview import:", err);
-      addToast("error", `모드 미리보기 실패: ${err}`, true);
+      console.error("Failed to import mod:", err);
+      addToast("error", `모드 가져오기 실패: ${err}`, true);
     }
   }, [modsPath, selectedCharacterId, addToast]);
 
@@ -293,13 +307,20 @@ export function App() {
     if (paths.length === 1) {
       // Single file: show preview modal
       try {
-        const preview = await previewImport(paths[0]!);
+        let preview: ImportPreviewData;
+        try {
+          preview = await previewImport(paths[0]!);
+        } catch {
+          const fileName = paths[0]!.split(/[/\\]/).pop() ?? "unknown_mod";
+          const defaultName = fileName.replace(/\.zip$/i, "");
+          preview = { defaultName, previewImages: [], tempDir: null };
+        }
         setImportPreview(preview);
         setImportSourcePath(paths[0]!);
         setShowImportModal(true);
       } catch (err) {
-        console.error("Failed to preview import:", err);
-        addToast("error", `모드 미리보기 실패: ${err}`, true);
+        console.error("Failed to import mod:", err);
+        addToast("error", `모드 가져오기 실패: ${err}`, true);
       }
     } else {
       // Multiple files: import directly without modal
