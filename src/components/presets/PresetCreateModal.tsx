@@ -27,7 +27,7 @@ export function PresetCreateModal({
   const [previewMod, setPreviewMod] = useState<Mod | null>(null);
   const [characterSearch, setCharacterSearch] = useState("");
   const [modSearch, setModSearch] = useState("");
-  const [previewWidth, setPreviewWidth] = useState(280);
+  const [previewWidth, setPreviewWidth] = useState(310);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
@@ -174,7 +174,7 @@ export function PresetCreateModal({
         </div>
 
         {/* Body - 3-column layout */}
-        <div className="flex flex-1 min-h-0">
+        <div className="flex flex-1 min-h-[400px]">
           {/* Left: Character List */}
           <div className="w-1/4 border-r border-white/10 flex flex-col">
             <div className="p-2 border-b border-white/5">
