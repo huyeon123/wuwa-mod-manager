@@ -101,3 +101,7 @@ export async function previewImport(sourcePath: string): Promise<ImportPreviewDa
 export async function cleanupImportTemp(tempDir: string): Promise<void> {
   return invoke<void>("cleanup_import_temp", { tempDir });
 }
+
+export async function setAutoLaunchGame(enabled: boolean): Promise<AppConfig> {
+  return invoke<AppConfig>("set_auto_launch_game", { enabled });
+}
