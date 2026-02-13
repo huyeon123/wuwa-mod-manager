@@ -46,22 +46,31 @@ pub async fn get_mods_for_character(
 }
 
 pub async fn find_preview_images(dir: &Path) -> Option<Vec<String>> {
-    let mut entries = match tokio::fs::read_dir(dir).await {
-        Ok(e) => e,
-        Err(_) => return None,
-    };
-
     let mut images = Vec::new();
     let image_extensions = ["png", "jpg", "jpeg"];
 
-    while let Ok(Some(entry)) = entries.next_entry().await {
-        let path = entry.path();
-        if path.is_file() {
-            if let Some(ext) = path.extension() {
-                let ext_str = ext.to_string_lossy().to_lowercase();
-                if image_extensions.contains(&ext_str.as_str()) {
-                    if let Some(absolute_path) = path.to_str() {
-                        images.push(absolute_path.to_string());
+    // Stack-based iterative approach for recursive directory traversal
+    let mut dirs_to_scan = vec![dir.to_path_buf()];
+
+    while let Some(current_dir) = dirs_to_scan.pop() {
+        let mut entries = match tokio::fs::read_dir(&current_dir).await {
+            Ok(e) => e,
+            Err(_) => continue, // Skip unreadable directories
+        };
+
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let path = entry.path();
+
+            if path.is_dir() {
+                // Push subdirectory to stack for scanning
+                dirs_to_scan.push(path);
+            } else if path.is_file() {
+                if let Some(ext) = path.extension() {
+                    let ext_str = ext.to_string_lossy().to_lowercase();
+                    if image_extensions.contains(&ext_str.as_str()) {
+                        if let Some(absolute_path) = path.to_str() {
+                            images.push(absolute_path.to_string());
+                        }
                     }
                 }
             }
