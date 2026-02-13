@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use crate::models::{GameMod, game_mod::{ModMetadata, ModKeybinding}};
+use crate::models::{GameMod, game_mod::{ModMetadata, ModKeybinding, ImportPreviewData}};
 
 pub async fn get_mods_for_character(
     character_id: &str,
@@ -45,7 +45,7 @@ pub async fn get_mods_for_character(
     Ok(mods)
 }
 
-async fn find_preview_images(dir: &Path) -> Option<Vec<String>> {
+pub async fn find_preview_images(dir: &Path) -> Option<Vec<String>> {
     let mut entries = match tokio::fs::read_dir(dir).await {
         Ok(e) => e,
         Err(_) => return None,
@@ -306,6 +306,7 @@ pub async fn import_mod(
     source_path: &str,
     character_id: &str,
     mods_path: &str,
+    custom_name: Option<&str>,
 ) -> Result<GameMod, String> {
     let source = Path::new(source_path);
 
@@ -363,11 +364,15 @@ pub async fn import_mod(
         return Err("지원하지 않는 파일 형식입니다. ZIP 파일 또는 폴더를 선택하세요.".to_string());
     }
 
-    // Determine mod name from folder
-    let mod_name = mod_content_dir
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_else(|| "unknown_mod".to_string());
+    // Determine mod name from folder or custom_name
+    let mod_name = if let Some(name) = custom_name {
+        name.to_string()
+    } else {
+        mod_content_dir
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "unknown_mod".to_string())
+    };
 
     // Read or create mod metadata
     let mod_json_path = mod_content_dir.join("mod.json");
@@ -530,5 +535,84 @@ async fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
         }
     }
 
+    Ok(())
+}
+
+pub async fn preview_import_source(source_path: &str) -> Result<ImportPreviewData, String> {
+    let source = Path::new(source_path);
+    if !source.exists() {
+        return Err(format!("파일을 찾을 수 없습니다: {}", source_path));
+    }
+
+    if source.is_file() && source_path.to_lowercase().ends_with(".zip") {
+        // Extract ZIP to temp
+        let temp_path = std::env::temp_dir().join(format!("wuwa_preview_{}", uuid::Uuid::new_v4()));
+        tokio::fs::create_dir_all(&temp_path).await
+            .map_err(|e| format!("임시 폴더 생성 실패: {}", e))?;
+
+        let zip_path = source.to_path_buf();
+        let extract_path = temp_path.clone();
+        tokio::task::spawn_blocking(move || {
+            let file = std::fs::File::open(&zip_path)
+                .map_err(|e| format!("ZIP 파일 열기 실패: {}", e))?;
+            let mut archive = zip::ZipArchive::new(file)
+                .map_err(|e| format!("ZIP 파일 읽기 실패: {}", e))?;
+            archive.extract(&extract_path)
+                .map_err(|e| format!("ZIP 압축 해제 실패: {}", e))?;
+            Ok::<(), String>(())
+        }).await
+            .map_err(|e| format!("ZIP 처리 중 오류: {}", e))?
+            .map_err(|e: String| e)?;
+
+        // Check if single root folder
+        let mut entries = tokio::fs::read_dir(&temp_path).await
+            .map_err(|e| format!("임시 폴더 읽기 실패: {}", e))?;
+        let mut children: Vec<PathBuf> = Vec::new();
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            children.push(entry.path());
+        }
+
+        let content_dir = if children.len() == 1 && children[0].is_dir() {
+            children[0].clone()
+        } else {
+            temp_path.clone()
+        };
+
+        let default_name = content_dir.file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "unknown_mod".to_string());
+
+        let preview_images = find_preview_images(&content_dir).await
+            .unwrap_or_default();
+
+        Ok(ImportPreviewData {
+            default_name,
+            preview_images,
+            temp_dir: Some(temp_path.to_string_lossy().to_string()),
+        })
+    } else if source.is_dir() {
+        let default_name = source.file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "unknown_mod".to_string());
+
+        let preview_images = find_preview_images(source).await
+            .unwrap_or_default();
+
+        Ok(ImportPreviewData {
+            default_name,
+            preview_images,
+            temp_dir: None,
+        })
+    } else {
+        Err("지원하지 않는 파일 형식입니다. ZIP 파일 또는 폴더를 선택하세요.".to_string())
+    }
+}
+
+pub async fn cleanup_import_temp(temp_dir: &str) -> Result<(), String> {
+    let path = Path::new(temp_dir);
+    if path.exists() && path.starts_with(std::env::temp_dir()) {
+        tokio::fs::remove_dir_all(path).await
+            .map_err(|e| format!("임시 폴더 삭제 실패: {}", e))?;
+    }
     Ok(())
 }
