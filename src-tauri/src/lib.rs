@@ -9,6 +9,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             commands::characters::get_characters,
             commands::mods::get_mods,
@@ -26,6 +27,7 @@ pub fn run() {
             commands::config::auto_detect_paths,
             commands::config::toggle_favorite_character,
             commands::config::toggle_favorite_mod,
+            commands::config::set_auto_launch_game,
             commands::presets::get_presets,
             commands::presets::create_preset,
             commands::presets::delete_preset,

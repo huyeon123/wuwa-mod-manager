@@ -13,6 +13,8 @@ pub struct AppConfig {
     pub favorite_mods: Vec<String>,
     #[serde(default)]
     pub presets: Vec<Preset>,
+    #[serde(default)]
+    pub auto_launch_game: bool,
 }
 
 impl Default for AppConfig {
@@ -24,6 +26,7 @@ impl Default for AppConfig {
             favorite_characters: Vec::new(),
             favorite_mods: Vec::new(),
             presets: Vec::new(),
+            auto_launch_game: false,
         }
     }
 }

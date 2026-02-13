@@ -4,6 +4,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getVersion } from "@tauri-apps/api/app";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { AppShell } from "./components/layout/AppShell";
 import { Sidebar } from "./components/layout/Sidebar";
 import type { MenuId } from "./components/layout/Sidebar";
@@ -13,7 +14,7 @@ import { ModDetailPanel } from "./components/mods/ModDetailPanel";
 import { ModImportModal } from "./components/mods/ModImportModal";
 import { PresetList } from "./components/presets/PresetList";
 import { PresetCreateModal } from "./components/presets/PresetCreateModal";
-import type { Character, Mod, Preset, PresetMod, ImportPreviewData } from "./lib/types";
+import type { Character, Mod, Preset, PresetMod, ImportPreviewData, AppConfig } from "./lib/types";
 import { ToastContainer, type ToastData } from "./components/ui/Toast";
 import {
   getCharacters,
@@ -37,6 +38,7 @@ import {
   updatePreset,
   previewImport,
   cleanupImportTemp,
+  setAutoLaunchGame,
 } from "./lib/commands";
 
 type View = "characters" | "mods";
@@ -61,12 +63,14 @@ export function App() {
   const [favoriteCharacterIds, setFavoriteCharacterIds] = useState<string[]>([]);
   const [favoriteModIds, setFavoriteModIds] = useState<string[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
+  const [activePresetIds, setActivePresetIds] = useState<string[]>([]);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importSourcePath, setImportSourcePath] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [config, setConfig] = useState<AppConfig | null>(null);
 
   const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
     const id = Date.now().toString();
@@ -85,19 +89,26 @@ export function App() {
   // Load config on startup
   useEffect(() => {
     getConfig()
-      .then((config) => {
-        if (config.modsPath) {
-          setModsPathState(config.modsPath);
+      .then((loadedConfig) => {
+        setConfig(loadedConfig);
+        if (loadedConfig.modsPath) {
+          setModsPathState(loadedConfig.modsPath);
         }
-        if (config.xxmiLauncherPath) {
-          setXxmiLauncherPathState(config.xxmiLauncherPath);
+        if (loadedConfig.xxmiLauncherPath) {
+          setXxmiLauncherPathState(loadedConfig.xxmiLauncherPath);
         }
         // Load favorites
-        setFavoriteCharacterIds(config.favoriteCharacters ?? []);
-        setFavoriteModIds(config.favoriteMods ?? []);
+        setFavoriteCharacterIds(loadedConfig.favoriteCharacters ?? []);
+        setFavoriteModIds(loadedConfig.favoriteMods ?? []);
         // If no modsPath, redirect to settings
-        if (!config.modsPath) {
+        if (!loadedConfig.modsPath) {
           setActiveMenu("settings");
+        }
+        // Auto-launch game if enabled
+        if (loadedConfig.autoLaunchGame && loadedConfig.xxmiLauncherPath) {
+          launchXxmi().catch((err) => {
+            console.error("Auto-launch failed:", err);
+          });
         }
       })
       .catch((err) => {
@@ -126,6 +137,22 @@ export function App() {
   }, [modsPath]);
 
   const selectedCharacter = characters.find((c) => c.id === selectedCharacterId);
+
+  // Calculate total enabled mods
+  const totalEnabledMods = Object.values(modCounts).reduce(
+    (sum, [enabled]) => sum + enabled,
+    0
+  );
+
+  // Calculate total mods
+  const totalMods = Object.values(modCounts).reduce(
+    (sum, [, total]) => sum + total,
+    0
+  );
+
+  // Calculate preset counts
+  const presetCount = presets.length;
+  const activePresetCount = activePresetIds.length;
 
   // Load mods when character is selected
   const loadMods = useCallback(
@@ -501,6 +528,10 @@ export function App() {
     try {
       await togglePreset(presetId, enable, modsPath);
       addToast("success", enable ? "프리셋이 활성화되었습니다" : "프리셋이 비활성화되었습니다");
+      // Track active preset state
+      setActivePresetIds(prev =>
+        enable ? [...prev, presetId] : prev.filter(id => id !== presetId)
+      );
       // Refresh mod counts
       getModCounts(modsPath).then(setModCounts).catch(console.error);
     } catch (err) {
@@ -614,6 +645,47 @@ export function App() {
                 XXMI Launcher (XXMI Launcher.exe)를 선택하세요
               </p>
             </div>
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+              <div>
+                <h3 className="text-sm font-medium text-text-primary">게임 자동실행</h3>
+                <p className="text-xs text-text-muted mt-0.5">앱 실행 시 자동으로 게임을 시작합니다</p>
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    const newConfig = await setAutoLaunchGame(!config?.autoLaunchGame);
+                    setConfig(newConfig);
+                  } catch (err) {
+                    addToast("error", `설정 변경 실패: ${err}`, true);
+                  }
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+                  config?.autoLaunchGame
+                    ? "bg-neon/30"
+                    : "bg-white/10"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${
+                    config?.autoLaunchGame
+                      ? "translate-x-5 bg-neon"
+                      : "translate-x-0 bg-white/40"
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+              <div>
+                <h3 className="text-sm font-medium text-text-primary">문제 신고하기</h3>
+                <p className="text-xs text-text-muted mt-0.5">버그 리포트 또는 기능 요청을 제출합니다</p>
+              </div>
+              <button
+                onClick={() => openUrl("https://github.com/huyeon123/wuwa-mod-manager/issues/new/choose")}
+                className="px-4 py-2 rounded-lg bg-white/5 text-text-muted border border-white/10 text-sm font-medium hover:bg-white/10 hover:text-text-primary transition-colors"
+              >
+                신고하기
+              </button>
+            </div>
             <div className="p-4 rounded-xl border border-white/10 bg-white/5">
               <div className="flex items-center justify-between">
                 <div>
@@ -664,6 +736,7 @@ export function App() {
           onCreatePreset={() => { setEditingPreset(null); setShowPresetModal(true); }}
           onEditPreset={handleEditPreset}
           modsPath={modsPath}
+          activePresetIds={activePresetIds}
         />
       );
     }
@@ -713,6 +786,10 @@ export function App() {
           onSelectCharacter={handleSelectCharacter}
           onLaunchXxmi={handleLaunchXxmi}
           xxmiLauncherPath={xxmiLauncherPath}
+          totalEnabledMods={totalEnabledMods}
+          totalMods={totalMods}
+          presetCount={presetCount}
+          activePresetCount={activePresetCount}
         />
         {renderContent()}
         {selectedMod && (

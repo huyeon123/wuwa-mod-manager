@@ -53,4 +53,5 @@ export interface AppConfig {
   favoriteCharacters: string[];
   favoriteMods: string[];
   presets: Preset[];
+  autoLaunchGame?: boolean;
 }

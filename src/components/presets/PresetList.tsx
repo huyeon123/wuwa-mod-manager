@@ -4,6 +4,7 @@ import type { Preset, Character } from "@/lib/types";
 interface PresetListProps {
   presets: Preset[];
   characters: Character[];
+  activePresetIds: string[];
   onTogglePreset: (presetId: string, enable: boolean) => void;
   onDeletePreset: (presetId: string) => void;
   onCreatePreset: () => void;
@@ -14,6 +15,7 @@ interface PresetListProps {
 export function PresetList({
   presets,
   characters,
+  activePresetIds,
   onTogglePreset,
   onDeletePreset,
   onCreatePreset,
@@ -116,16 +118,21 @@ export function PresetList({
                   {/* Toggle Buttons */}
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => onTogglePreset(preset.id, true)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-neon/10 text-neon border border-neon/30 hover:bg-neon/20 transition-colors"
+                      onClick={() => onTogglePreset(preset.id, !activePresetIds.includes(preset.id))}
+                      className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${
+                        activePresetIds.includes(preset.id)
+                          ? "bg-neon/30"
+                          : "bg-white/10"
+                      }`}
+                      title={activePresetIds.includes(preset.id) ? "프리셋 비활성화" : "프리셋 활성화"}
                     >
-                      ON
-                    </button>
-                    <button
-                      onClick={() => onTogglePreset(preset.id, false)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-text-muted border border-white/10 hover:bg-white/10 hover:text-text-primary transition-colors"
-                    >
-                      OFF
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${
+                          activePresetIds.includes(preset.id)
+                            ? "translate-x-5 bg-neon"
+                            : "translate-x-0 bg-white/40"
+                        }`}
+                      />
                     </button>
                     <button
                       onClick={() => onEditPreset(preset)}

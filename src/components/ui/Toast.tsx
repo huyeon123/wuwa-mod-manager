@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { X, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 export interface ToastData {
   id: string;
@@ -25,10 +26,7 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
   const { id, type, message, showReport } = toast;
 
   const handleReport = () => {
-    window.open(
-      "https://github.com/user/wuwa-mod-manager/issues/new",
-      "_blank"
-    );
+    openUrl("https://github.com/huyeon123/wuwa-mod-manager/issues/new/choose");
   };
 
   const typeConfig = {

@@ -94,3 +94,11 @@ pub async fn toggle_favorite_mod(
 ) -> Result<AppConfig, String> {
     config_manager::toggle_favorite_mod(&character_id, &mod_id, &app_handle).await
 }
+
+#[tauri::command]
+pub async fn set_auto_launch_game(
+    enabled: bool,
+    app_handle: tauri::AppHandle,
+) -> Result<AppConfig, String> {
+    config_manager::set_auto_launch_game(enabled, &app_handle).await
+}
