@@ -10,7 +10,9 @@ import type { MenuId } from "./components/layout/Sidebar";
 import { CharacterGrid } from "./components/characters/CharacterGrid";
 import { ModList } from "./components/mods/ModList";
 import { ModDetailPanel } from "./components/mods/ModDetailPanel";
-import type { Character, Mod } from "./lib/types";
+import { PresetList } from "./components/presets/PresetList";
+import { PresetCreateModal } from "./components/presets/PresetCreateModal";
+import type { Character, Mod, Preset, PresetMod } from "./lib/types";
 import { ToastContainer, type ToastData } from "./components/ui/Toast";
 import {
   getCharacters,
@@ -27,6 +29,10 @@ import {
   autoDetectPaths,
   toggleFavoriteCharacter,
   toggleFavoriteMod,
+  getPresets,
+  createPreset,
+  deletePreset as deletePresetCmd,
+  togglePreset,
 } from "./lib/commands";
 
 type View = "characters" | "mods";
@@ -50,6 +56,8 @@ export function App() {
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [favoriteCharacterIds, setFavoriteCharacterIds] = useState<string[]>([]);
   const [favoriteModIds, setFavoriteModIds] = useState<string[]>([]);
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [showPresetModal, setShowPresetModal] = useState(false);
 
   const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
     const id = Date.now().toString();
@@ -87,6 +95,8 @@ export function App() {
         console.error("Failed to load config:", err);
       });
     getVersion().then(setAppVersion).catch(console.error);
+    // Load presets
+    getPresets().then(setPresets).catch(err => console.error("Failed to load presets:", err));
   }, []);
 
   // Load characters
@@ -408,6 +418,42 @@ export function App() {
     }
   }, []);
 
+  const handleTogglePreset = useCallback(async (presetId: string, enable: boolean) => {
+    if (!modsPath) return;
+    try {
+      await togglePreset(presetId, enable, modsPath);
+      addToast("success", enable ? "프리셋이 활성화되었습니다" : "프리셋이 비활성화되었습니다");
+      // Refresh mod counts
+      getModCounts(modsPath).then(setModCounts).catch(console.error);
+    } catch (err) {
+      console.error("Failed to toggle preset:", err);
+      addToast("error", `프리셋 전환 실패: ${err}`, true);
+    }
+  }, [modsPath, addToast]);
+
+  const handleDeletePreset = useCallback(async (presetId: string) => {
+    try {
+      await deletePresetCmd(presetId);
+      setPresets(prev => prev.filter(p => p.id !== presetId));
+      addToast("success", "프리셋이 삭제되었습니다");
+    } catch (err) {
+      console.error("Failed to delete preset:", err);
+      addToast("error", `프리셋 삭제 실패: ${err}`, true);
+    }
+  }, [addToast]);
+
+  const handleCreatePreset = useCallback(async (name: string, mods: PresetMod[]) => {
+    try {
+      const newPreset = await createPreset(name, mods);
+      setPresets(prev => [...prev, newPreset]);
+      setShowPresetModal(false);
+      addToast("success", `프리셋 "${name}"이(가) 추가되었습니다`);
+    } catch (err) {
+      console.error("Failed to create preset:", err);
+      addToast("error", `프리셋 추가 실패: ${err}`, true);
+    }
+  }, [addToast]);
+
   const renderContent = () => {
     if (activeMenu === "settings") {
       return (
@@ -511,6 +557,19 @@ export function App() {
       );
     }
 
+    if (activeMenu === "presets") {
+      return (
+        <PresetList
+          presets={presets}
+          characters={characters}
+          onTogglePreset={handleTogglePreset}
+          onDeletePreset={handleDeletePreset}
+          onCreatePreset={() => setShowPresetModal(true)}
+          modsPath={modsPath}
+        />
+      );
+    }
+
     if (view === "characters") {
       return (
         <CharacterGrid
@@ -568,6 +627,15 @@ export function App() {
           />
         )}
       </AppShell>
+      {showPresetModal && modsPath && (
+        <PresetCreateModal
+          characters={characters}
+          modsPath={modsPath}
+          onClose={() => setShowPresetModal(false)}
+          onSubmit={handleCreatePreset}
+          getMods={getMods}
+        />
+      )}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </>
   );
