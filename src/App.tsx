@@ -4,6 +4,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getVersion } from "@tauri-apps/api/app";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { AppShell } from "./components/layout/AppShell";
 import { Sidebar } from "./components/layout/Sidebar";
 import type { MenuId } from "./components/layout/Sidebar";
@@ -62,6 +63,7 @@ export function App() {
   const [favoriteCharacterIds, setFavoriteCharacterIds] = useState<string[]>([]);
   const [favoriteModIds, setFavoriteModIds] = useState<string[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
+  const [activePresetIds, setActivePresetIds] = useState<string[]>([]);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
@@ -141,6 +143,16 @@ export function App() {
     (sum, [enabled]) => sum + enabled,
     0
   );
+
+  // Calculate total mods
+  const totalMods = Object.values(modCounts).reduce(
+    (sum, [, total]) => sum + total,
+    0
+  );
+
+  // Calculate preset counts
+  const presetCount = presets.length;
+  const activePresetCount = activePresetIds.length;
 
   // Load mods when character is selected
   const loadMods = useCallback(
@@ -516,6 +528,10 @@ export function App() {
     try {
       await togglePreset(presetId, enable, modsPath);
       addToast("success", enable ? "프리셋이 활성화되었습니다" : "프리셋이 비활성화되었습니다");
+      // Track active preset state
+      setActivePresetIds(prev =>
+        enable ? [...prev, presetId] : prev.filter(id => id !== presetId)
+      );
       // Refresh mod counts
       getModCounts(modsPath).then(setModCounts).catch(console.error);
     } catch (err) {
@@ -658,6 +674,18 @@ export function App() {
                 />
               </button>
             </div>
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+              <div>
+                <h3 className="text-sm font-medium text-text-primary">문제 신고하기</h3>
+                <p className="text-xs text-text-muted mt-0.5">버그 리포트 또는 기능 요청을 제출합니다</p>
+              </div>
+              <button
+                onClick={() => openUrl("https://github.com/huyeon123/wuwa-mod-manager/issues/new/choose")}
+                className="px-4 py-2 rounded-lg bg-white/5 text-text-muted border border-white/10 text-sm font-medium hover:bg-white/10 hover:text-text-primary transition-colors"
+              >
+                신고하기
+              </button>
+            </div>
             <div className="p-4 rounded-xl border border-white/10 bg-white/5">
               <div className="flex items-center justify-between">
                 <div>
@@ -708,6 +736,7 @@ export function App() {
           onCreatePreset={() => { setEditingPreset(null); setShowPresetModal(true); }}
           onEditPreset={handleEditPreset}
           modsPath={modsPath}
+          activePresetIds={activePresetIds}
         />
       );
     }
@@ -758,6 +787,9 @@ export function App() {
           onLaunchXxmi={handleLaunchXxmi}
           xxmiLauncherPath={xxmiLauncherPath}
           totalEnabledMods={totalEnabledMods}
+          totalMods={totalMods}
+          presetCount={presetCount}
+          activePresetCount={activePresetCount}
         />
         {renderContent()}
         {selectedMod && (
