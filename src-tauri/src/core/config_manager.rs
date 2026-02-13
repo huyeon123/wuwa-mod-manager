@@ -186,3 +186,37 @@ pub async fn auto_detect_paths() -> Result<(Option<String>, Option<String>), Str
 
     Ok((mods_path, xxmi_launcher_path))
 }
+
+pub async fn toggle_favorite_character(
+    character_id: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<AppConfig, String> {
+    let mut config = load_config(app_handle).await?;
+
+    if let Some(pos) = config.favorite_characters.iter().position(|id| id == character_id) {
+        config.favorite_characters.remove(pos);
+    } else {
+        config.favorite_characters.push(character_id.to_string());
+    }
+
+    save_config(&config, app_handle).await?;
+    Ok(config)
+}
+
+pub async fn toggle_favorite_mod(
+    character_id: &str,
+    mod_id: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<AppConfig, String> {
+    let mut config = load_config(app_handle).await?;
+    let key = format!("{}/{}", character_id, mod_id);
+
+    if let Some(pos) = config.favorite_mods.iter().position(|id| id == &key) {
+        config.favorite_mods.remove(pos);
+    } else {
+        config.favorite_mods.push(key);
+    }
+
+    save_config(&config, app_handle).await?;
+    Ok(config)
+}
