@@ -554,45 +554,80 @@ pub async fn preview_import_source(source_path: &str) -> Result<ImportPreviewDat
     }
 
     if source.is_file() && source_path.to_lowercase().ends_with(".zip") {
-        // Extract ZIP to temp
         let temp_path = std::env::temp_dir().join(format!("wuwa_preview_{}", uuid::Uuid::new_v4()));
         tokio::fs::create_dir_all(&temp_path).await
             .map_err(|e| format!("임시 폴더 생성 실패: {}", e))?;
 
         let zip_path = source.to_path_buf();
         let extract_path = temp_path.clone();
-        tokio::task::spawn_blocking(move || {
+        let (default_name, preview_images) = tokio::task::spawn_blocking(move || {
             let file = std::fs::File::open(&zip_path)
                 .map_err(|e| format!("ZIP 파일 열기 실패: {}", e))?;
             let mut archive = zip::ZipArchive::new(file)
                 .map_err(|e| format!("ZIP 파일 읽기 실패: {}", e))?;
-            archive.extract(&extract_path)
-                .map_err(|e| format!("ZIP 압축 해제 실패: {}", e))?;
-            Ok::<(), String>(())
+
+            let image_extensions = ["png", "jpg", "jpeg"];
+            let mut images: Vec<String> = Vec::new();
+            let mut root_dir_name: Option<String> = None;
+
+            for i in 0..archive.len() {
+                let mut entry = archive.by_index(i)
+                    .map_err(|e| format!("ZIP 엔트리 읽기 실패: {}", e))?;
+
+                let entry_name = entry.name().to_string();
+
+                // Detect root directory name (first path component)
+                if root_dir_name.is_none() {
+                    if let Some(first_component) = entry_name.split('/').next() {
+                        if !first_component.is_empty() {
+                            root_dir_name = Some(first_component.to_string());
+                        }
+                    }
+                }
+
+                // Check if this entry is an image file
+                if entry.is_file() {
+                    let lower_name = entry_name.to_lowercase();
+                    let is_image = image_extensions.iter().any(|ext| lower_name.ends_with(&format!(".{}", ext)));
+                    if is_image {
+                        // Extract only this image file to temp dir with flat naming
+                        let file_name = Path::new(&entry_name)
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_else(|| format!("image_{}.png", i));
+                        let dest_path = extract_path.join(format!("{}_{}", i, file_name));
+
+                        if let Ok(mut outfile) = std::fs::File::create(&dest_path) {
+                            let _ = std::io::copy(&mut entry, &mut outfile);
+                            if let Some(path_str) = dest_path.to_str() {
+                                images.push(path_str.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Sort: "preview" images first
+            images.sort_by(|a, b| {
+                let a_preview = a.to_lowercase().contains("preview");
+                let b_preview = b.to_lowercase().contains("preview");
+                match (a_preview, b_preview) {
+                    (true, false) => std::cmp::Ordering::Less,
+                    (false, true) => std::cmp::Ordering::Greater,
+                    _ => a.cmp(b),
+                }
+            });
+
+            let name = root_dir_name.unwrap_or_else(|| {
+                zip_path.file_stem()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "unknown_mod".to_string())
+            });
+
+            Ok::<(String, Vec<String>), String>((name, images))
         }).await
             .map_err(|e| format!("ZIP 처리 중 오류: {}", e))?
             .map_err(|e: String| e)?;
-
-        // Check if single root folder
-        let mut entries = tokio::fs::read_dir(&temp_path).await
-            .map_err(|e| format!("임시 폴더 읽기 실패: {}", e))?;
-        let mut children: Vec<PathBuf> = Vec::new();
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            children.push(entry.path());
-        }
-
-        let content_dir = if children.len() == 1 && children[0].is_dir() {
-            children[0].clone()
-        } else {
-            temp_path.clone()
-        };
-
-        let default_name = content_dir.file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| "unknown_mod".to_string());
-
-        let preview_images = find_preview_images(&content_dir).await
-            .unwrap_or_default();
 
         Ok(ImportPreviewData {
             default_name,
