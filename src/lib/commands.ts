@@ -64,3 +64,11 @@ export async function launchXxmi(): Promise<boolean> {
 export async function autoDetectPaths(): Promise<[string | null, string | null]> {
   return invoke<[string | null, string | null]>("auto_detect_paths");
 }
+
+export async function toggleFavoriteCharacter(characterId: string): Promise<AppConfig> {
+  return invoke<AppConfig>("toggle_favorite_character", { characterId });
+}
+
+export async function toggleFavoriteMod(characterId: string, modId: string): Promise<AppConfig> {
+  return invoke<AppConfig>("toggle_favorite_mod", { characterId, modId });
+}

@@ -41,4 +41,6 @@ export interface AppConfig {
   modsPath?: string;
   gamePath?: string;
   xxmiLauncherPath?: string;
+  favoriteCharacters: string[];
+  favoriteMods: string[];
 }
