@@ -66,6 +66,7 @@ export function App() {
   const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importSourcePath, setImportSourcePath] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
     const id = Date.now().toString();
@@ -274,6 +275,7 @@ export function App() {
 
   const handleConfirmImport = useCallback(async (customName: string) => {
     if (!modsPath || !selectedCharacterId || !importSourcePath) return;
+    setIsImporting(true);
     try {
       await importMod(importSourcePath, selectedCharacterId, modsPath, customName);
       await loadMods(selectedCharacterId);
@@ -283,6 +285,7 @@ export function App() {
       console.error("Failed to import mod:", err);
       addToast("error", `모드 가져오기 실패: ${err}`, true);
     } finally {
+      setIsImporting(false);
       // Cleanup temp dir if exists
       if (importPreview?.tempDir) {
         cleanupImportTemp(importPreview.tempDir).catch(console.error);
@@ -739,6 +742,7 @@ export function App() {
         <ModImportModal
           defaultName={importPreview.defaultName}
           previewImages={importPreview.previewImages}
+          isImporting={isImporting}
           onConfirm={handleConfirmImport}
           onCancel={handleCancelImport}
         />

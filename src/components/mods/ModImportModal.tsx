@@ -4,6 +4,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 interface ModImportModalProps {
   defaultName: string;
   previewImages: string[];
+  isImporting: boolean;
   onConfirm: (customName: string) => void;
   onCancel: () => void;
 }
@@ -11,6 +12,7 @@ interface ModImportModalProps {
 export function ModImportModal({
   defaultName,
   previewImages,
+  isImporting,
   onConfirm,
   onCancel,
 }: ModImportModalProps) {
@@ -24,7 +26,7 @@ export function ModImportModal({
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onCancel}
+        onClick={isImporting ? undefined : onCancel}
       />
 
       {/* Modal */}
@@ -36,8 +38,9 @@ export function ModImportModal({
               모드 가져오기
             </h2>
             <button
-              onClick={onCancel}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-white/10 transition-colors"
+              onClick={isImporting ? undefined : onCancel}
+              disabled={isImporting}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {/* X icon SVG */}
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -47,8 +50,17 @@ export function ModImportModal({
           </div>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-4">
+        {isImporting ? (
+          /* Loading State */
+          <div className="p-12 flex flex-col items-center justify-center gap-4">
+            {/* Spinning loader */}
+            <div className="w-10 h-10 border-[3px] border-white/20 border-t-neon rounded-full animate-spin" />
+            <p className="text-sm text-text-muted">모드를 가져오는 중...</p>
+          </div>
+        ) : (
+          <>
+            {/* Body */}
+            <div className="p-6 space-y-4">
           {/* Preview Images */}
           {previewImages.length > 0 && (
             <div className="space-y-2">
@@ -110,8 +122,10 @@ export function ModImportModal({
               className="w-full px-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-text-primary placeholder:text-text-muted text-sm focus:outline-none focus:border-neon/40 transition-colors"
               autoFocus
               onKeyDown={(e) => {
-                if (e.key === "Enter" && canSubmit) {
+                if (e.key === "Enter" && canSubmit && !isImporting) {
                   onConfirm(modName.trim());
+                } else if (e.key === "Escape" && !isImporting) {
+                  onCancel();
                 }
               }}
             />
@@ -121,22 +135,24 @@ export function ModImportModal({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-white/10 flex items-center justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-text-muted border border-white/10 hover:bg-white/5 transition-colors"
-          >
-            취소
-          </button>
-          <button
-            onClick={() => canSubmit && onConfirm(modName.trim())}
-            disabled={!canSubmit}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-neon/10 text-neon border border-neon/30 hover:bg-neon/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            가져오기
-          </button>
-        </div>
+            {/* Footer */}
+            <div className="p-4 border-t border-white/10 flex items-center justify-end gap-2">
+              <button
+                onClick={onCancel}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-text-muted border border-white/10 hover:bg-white/5 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => canSubmit && onConfirm(modName.trim())}
+                disabled={!canSubmit}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-neon/10 text-neon border border-neon/30 hover:bg-neon/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                가져오기
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
