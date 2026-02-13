@@ -440,59 +440,84 @@ pub async fn import_mod(
             .await
             .map_err(|e| format!("대상 폴더 생성 실패: {}", e))?;
 
-        // Phase 3: Extract directly to target directory
-        let zip_path_for_extract = source.to_path_buf();
-        let dest_for_extract = dest.clone();
-        let prefix_for_extract = root_prefix.clone();
-        tokio::task::spawn_blocking(move || {
-            let file = std::fs::File::open(&zip_path_for_extract)
-                .map_err(|e| format!("ZIP 파일 열기 실패: {}", e))?;
-            let mut archive = zip::ZipArchive::new(file)
-                .map_err(|e| format!("ZIP 파일 읽기 실패: {}", e))?;
-
-            for i in 0..archive.len() {
-                let mut entry = archive.by_index(i)
-                    .map_err(|e| format!("ZIP 엔트리 읽기 실패: {}", e))?;
-                let entry_path = entry.name().to_string();
-
-                // Strip root prefix if present
-                let relative_path = if let Some(ref prefix) = prefix_for_extract {
-                    if let Some(stripped) = entry_path.strip_prefix(prefix.as_str()) {
-                        stripped.to_string()
-                    } else {
-                        // Entry outside root prefix (e.g., the root dir entry itself)
-                        continue;
-                    }
-                } else {
-                    entry_path.clone()
-                };
-
-                if relative_path.is_empty() {
-                    continue;
-                }
-
-                let target = dest_for_extract.join(&relative_path);
-
-                if entry.is_dir() {
-                    std::fs::create_dir_all(&target)
-                        .map_err(|e| format!("폴더 생성 실패: {}", e))?;
-                } else {
-                    if let Some(parent) = target.parent() {
-                        std::fs::create_dir_all(parent)
-                            .map_err(|e| format!("폴더 생성 실패: {}", e))?;
-                    }
-                    let mut outfile = std::fs::File::create(&target)
-                        .map_err(|e| format!("파일 생성 실패: {}", e))?;
-                    std::io::copy(&mut entry, &mut outfile)
-                        .map_err(|e| format!("파일 쓰기 실패: {}", e))?;
-                }
+        // Phase 3: Extract using native tar.exe for maximum speed
+        // Windows System32 tar.exe is bsdtar (libarchive) which supports ZIP natively
+        let zip_path_str = source.to_string_lossy().to_string();
+        let dest_str = dest.to_string_lossy().to_string();
+        let strip = root_prefix.is_some();
+        let tar_result = tokio::task::spawn_blocking(move || {
+            // Use Windows native bsdtar for fast ZIP extraction
+            let tar_exe = r"C:\Windows\System32\tar.exe";
+            let mut cmd = std::process::Command::new(tar_exe);
+            cmd.arg("-xf").arg(&zip_path_str).arg("-C").arg(&dest_str);
+            if strip {
+                cmd.arg("--strip-components=1");
             }
-
+            let output = cmd.output()
+                .map_err(|e| format!("tar 실행 실패: {}", e))?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("tar 추출 실패: {}", stderr));
+            }
             Ok::<(), String>(())
         })
         .await
-        .map_err(|e| format!("ZIP 추출 중 오류: {}", e))?
-        .map_err(|e: String| e)?;
+        .map_err(|e| format!("ZIP 추출 중 오류: {}", e))?;
+
+        // Fallback to Rust zip crate if tar fails
+        if let Err(_tar_err) = tar_result {
+            // tar failed, use Rust zip crate as fallback
+            let zip_path_for_extract = source.to_path_buf();
+            let dest_for_extract = dest.clone();
+            let prefix_for_extract = root_prefix.clone();
+            tokio::task::spawn_blocking(move || {
+                let file = std::fs::File::open(&zip_path_for_extract)
+                    .map_err(|e| format!("ZIP 파일 열기 실패: {}", e))?;
+                let mut archive = zip::ZipArchive::new(file)
+                    .map_err(|e| format!("ZIP 파일 읽기 실패: {}", e))?;
+
+                for i in 0..archive.len() {
+                    let mut entry = archive.by_index(i)
+                        .map_err(|e| format!("ZIP 엔트리 읽기 실패: {}", e))?;
+                    let entry_path = entry.name().to_string();
+
+                    let relative_path = if let Some(ref prefix) = prefix_for_extract {
+                        if let Some(stripped) = entry_path.strip_prefix(prefix.as_str()) {
+                            stripped.to_string()
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        entry_path.clone()
+                    };
+
+                    if relative_path.is_empty() {
+                        continue;
+                    }
+
+                    let target = dest_for_extract.join(&relative_path);
+
+                    if entry.is_dir() {
+                        std::fs::create_dir_all(&target)
+                            .map_err(|e| format!("폴더 생성 실패: {}", e))?;
+                    } else {
+                        if let Some(parent) = target.parent() {
+                            std::fs::create_dir_all(parent)
+                                .map_err(|e| format!("폴더 생성 실패: {}", e))?;
+                        }
+                        let mut outfile = std::fs::File::create(&target)
+                            .map_err(|e| format!("파일 생성 실패: {}", e))?;
+                        std::io::copy(&mut entry, &mut outfile)
+                            .map_err(|e| format!("파일 쓰기 실패: {}", e))?;
+                    }
+                }
+
+                Ok::<(), String>(())
+            })
+            .await
+            .map_err(|e| format!("ZIP 추출 중 오류: {}", e))?
+            .map_err(|e: String| e)?;
+        }
 
         // Write mod.json if it wasn't in the ZIP
         if !has_mod_json {
