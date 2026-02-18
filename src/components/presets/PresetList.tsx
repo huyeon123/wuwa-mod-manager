@@ -124,7 +124,7 @@ export function PresetList({
             return (
               <div
                 key={preset.id}
-                className="rounded-xl border border-white/10 bg-white/5 overflow-hidden"
+                className="rounded-xl border border-white/10 bg-white/5"
               >
                 {/* Preset Header */}
                 <div className="flex items-center gap-3 p-4">
