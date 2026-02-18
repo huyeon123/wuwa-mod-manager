@@ -111,3 +111,41 @@ pub async fn update_preset(
 
     Ok(updated)
 }
+
+/// 특정 모드를 모든 프리셋에서 제거하고, 모드가 0개가 된 프리셋은 삭제
+pub async fn remove_mod_from_presets(
+    character_id: &str,
+    mod_id: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<(), String> {
+    let mut config = config_manager::load_config(app_handle).await?;
+
+    let mut changed = false;
+
+    // 각 프리셋에서 해당 모드 제거
+    for preset in &mut config.presets {
+        let before_len = preset.mods.len();
+        preset.mods.retain(|m| !(m.character_id == character_id && m.mod_id == mod_id));
+        if preset.mods.len() != before_len {
+            changed = true;
+        }
+    }
+
+    // 모드가 0개인 프리셋 삭제 + active_preset_ids에서도 제거
+    let empty_preset_ids: Vec<String> = config.presets.iter()
+        .filter(|p| p.mods.is_empty())
+        .map(|p| p.id.clone())
+        .collect();
+
+    if !empty_preset_ids.is_empty() {
+        config.presets.retain(|p| !p.mods.is_empty());
+        config.active_preset_ids.retain(|id| !empty_preset_ids.contains(id));
+        changed = true;
+    }
+
+    if changed {
+        config_manager::save_config(&config, app_handle).await?;
+    }
+
+    Ok(())
+}
