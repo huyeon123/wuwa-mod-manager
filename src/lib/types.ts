@@ -55,4 +55,5 @@ export interface AppConfig {
   presets: Preset[];
   autoLaunchGame?: boolean;
   activePresetIds: string[];
+  modOrder?: Record<string, string[]>;
 }

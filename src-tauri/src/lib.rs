@@ -28,6 +28,7 @@ pub fn run() {
             commands::config::toggle_favorite_character,
             commands::config::toggle_favorite_mod,
             commands::config::set_auto_launch_game,
+            commands::config::set_mod_order,
             commands::presets::get_presets,
             commands::presets::create_preset,
             commands::presets::delete_preset,

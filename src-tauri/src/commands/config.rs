@@ -102,3 +102,12 @@ pub async fn set_auto_launch_game(
 ) -> Result<AppConfig, String> {
     config_manager::set_auto_launch_game(enabled, &app_handle).await
 }
+
+#[tauri::command]
+pub async fn set_mod_order(
+    character_id: String,
+    mod_ids: Vec<String>,
+    app_handle: tauri::AppHandle,
+) -> Result<AppConfig, String> {
+    config_manager::set_mod_order(&character_id, mod_ids, &app_handle).await
+}

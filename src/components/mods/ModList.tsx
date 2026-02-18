@@ -1,4 +1,19 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
 import type { Mod } from "@/lib/types";
 import { ModCard } from "./ModCard";
 
@@ -16,6 +31,9 @@ interface ModListProps {
   onDropFiles: (paths: string[]) => void;
   favoriteModIds: string[];
   onToggleFavoriteMod: (mod: Mod) => void;
+  modOrder: Record<string, string[]>;
+  onReorderMods: (characterId: string, modIds: string[]) => void;
+  selectedCharacterId: string | null;
 }
 
 export function ModList({
@@ -32,19 +50,33 @@ export function ModList({
   onDropFiles: _onDropFiles,
   favoriteModIds,
   onToggleFavoriteMod,
+  modOrder,
+  onReorderMods,
+  selectedCharacterId,
 }: ModListProps) {
   const [showImportMenu, setShowImportMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const sortedMods = useMemo(() => {
-    return [...mods].sort((a, b) => {
-      const aFav = favoriteModIds.includes(a.id);
-      const bFav = favoriteModIds.includes(b.id);
-      if (aFav && !bFav) return -1;
-      if (!aFav && bFav) return 1;
+    const favMods = mods.filter(m => favoriteModIds.includes(m.id));
+    const nonFavMods = mods.filter(m => !favoriteModIds.includes(m.id));
+
+    const orderList = selectedCharacterId ? (modOrder[selectedCharacterId] ?? []) : [];
+
+    const sortByOrder = (a: Mod, b: Mod) => {
+      const aIdx = orderList.indexOf(a.id);
+      const bIdx = orderList.indexOf(b.id);
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
       return a.id.localeCompare(b.id, "ko");
-    });
-  }, [mods, favoriteModIds]);
+    };
+
+    favMods.sort(sortByOrder);
+    nonFavMods.sort(sortByOrder);
+
+    return [...favMods, ...nonFavMods];
+  }, [mods, favoriteModIds, modOrder, selectedCharacterId]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -55,6 +87,31 @@ export function ModList({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !selectedCharacterId) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // 즐겨찾기끼리만, 비즐겨찾기끼리만 이동 가능
+    const activeIsFav = favoriteModIds.includes(activeId);
+    const overIsFav = favoriteModIds.includes(overId);
+    if (activeIsFav !== overIsFav) return;
+
+    const oldIndex = sortedMods.findIndex(m => m.id === activeId);
+    const newIndex = sortedMods.findIndex(m => m.id === overId);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newSorted = arrayMove(sortedMods, oldIndex, newIndex);
+    onReorderMods(selectedCharacterId, newSorted.map(m => m.id));
+  }, [sortedMods, selectedCharacterId, favoriteModIds, onReorderMods]);
 
   return (
     <main className="flex-1 overflow-y-auto p-6 relative">
@@ -136,19 +193,23 @@ export function ModList({
           <p className="text-sm">불러오는 중...</p>
         </div>
       ) : mods.length > 0 ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {sortedMods.map((mod) => (
-            <ModCard
-              key={mod.id}
-              mod={mod}
-              isSelected={selectedMod?.id === mod.id}
-              onSelect={onSelectMod}
-              onToggle={onToggleMod}
-              isFavorite={favoriteModIds.includes(mod.id)}
-              onToggleFavorite={onToggleFavoriteMod}
-            />
-          ))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={sortedMods.map(m => m.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {sortedMods.map((mod) => (
+                <ModCard
+                  key={mod.id}
+                  mod={mod}
+                  isSelected={selectedMod?.id === mod.id}
+                  onSelect={onSelectMod}
+                  onToggle={onToggleMod}
+                  isFavorite={favoriteModIds.includes(mod.id)}
+                  onToggleFavorite={onToggleFavoriteMod}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       ) : (
         <div className="flex flex-col items-center justify-center h-64 text-text-muted">
           <svg className="w-12 h-12 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

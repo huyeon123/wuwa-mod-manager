@@ -30,6 +30,7 @@ import {
   launchXxmi,
   toggleFavoriteCharacter,
   toggleFavoriteMod,
+  setModOrder,
 } from "./lib/commands";
 
 type View = "characters" | "mods";
@@ -268,6 +269,18 @@ export function App() {
       addToast("error", `즐겨찾기 변경 실패: ${err}`, true);
     }
   }, [selectedCharacterId, addToast]);
+
+  const handleReorderMods = useCallback(
+    async (characterId: string, modIds: string[]) => {
+      try {
+        const newConfig = await setModOrder(characterId, modIds);
+        setConfig(newConfig);
+      } catch (err) {
+        console.error("Failed to set mod order:", err);
+      }
+    },
+    [],
+  );
 
   const handleSelectMod = useCallback((mod: Mod) => {
     setSelectedMod(mod);
@@ -536,6 +549,9 @@ export function App() {
           .filter(id => id.startsWith(`${selectedCharacterId}/`))
           .map(id => id.split("/").slice(1).join("/"))}
         onToggleFavoriteMod={handleToggleFavoriteMod}
+        modOrder={config?.modOrder ?? {}}
+        onReorderMods={handleReorderMods}
+        selectedCharacterId={selectedCharacterId}
       />
     );
   };

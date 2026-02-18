@@ -226,3 +226,14 @@ pub async fn set_auto_launch_game(
     save_config(&config, app_handle).await?;
     Ok(config)
 }
+
+pub async fn set_mod_order(
+    character_id: &str,
+    mod_ids: Vec<String>,
+    app_handle: &tauri::AppHandle,
+) -> Result<AppConfig, String> {
+    let mut config = load_config(app_handle).await?;
+    config.mod_order.insert(character_id.to_string(), mod_ids);
+    save_config(&config, app_handle).await?;
+    Ok(config)
+}

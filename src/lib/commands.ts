@@ -109,3 +109,7 @@ export async function setAutoLaunchGame(enabled: boolean): Promise<AppConfig> {
 export async function syncPresets(modsPath: string): Promise<Preset[]> {
   return invoke<Preset[]>("sync_presets", { modsPath });
 }
+
+export async function setModOrder(characterId: string, modIds: string[]): Promise<AppConfig> {
+  return invoke<AppConfig>("set_mod_order", { characterId, modIds });
+}

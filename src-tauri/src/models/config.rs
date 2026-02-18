@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use super::preset::Preset;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,6 +18,8 @@ pub struct AppConfig {
     pub auto_launch_game: bool,
     #[serde(default)]
     pub active_preset_ids: Vec<String>,
+    #[serde(default)]
+    pub mod_order: HashMap<String, Vec<String>>,
 }
 
 impl Default for AppConfig {
@@ -30,6 +33,7 @@ impl Default for AppConfig {
             presets: Vec::new(),
             auto_launch_game: false,
             active_preset_ids: Vec::new(),
+            mod_order: HashMap::new(),
         }
     }
 }
