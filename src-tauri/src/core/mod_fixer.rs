@@ -1,6 +1,4 @@
 use std::path::PathBuf;
-use std::process::Stdio;
-use std::io::Write;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -50,11 +48,11 @@ pub async fn run_mod_fixer(mods_path: &str) -> Result<String, String> {
     let stable_path = download_file(&client, &stable_textures.browser_download_url, &download_dir, &stable_textures.name).await?;
     let fixer_path = download_file(&client, &mod_fixer.browser_download_url, &download_dir, &mod_fixer.name).await?;
 
-    // 4. StableTextures.exe 실행 (완료까지 대기, 엔터 3번 입력)
-    run_exe_with_enter(&stable_path, mods_path).await?;
+    // 4. StableTextures.exe 실행 (콘솔 창 표시, 완료까지 대기)
+    run_exe(&stable_path, mods_path).await?;
 
-    // 5. Wuwa_Mod_Fixer.exe 실행 (완료까지 대기, 엔터 3번 입력)
-    run_exe_with_enter(&fixer_path, mods_path).await?;
+    // 5. Wuwa_Mod_Fixer.exe 실행 (콘솔 창 표시, 완료까지 대기)
+    run_exe(&fixer_path, mods_path).await?;
 
     Ok(format!("모드 픽스툴 {} 실행 완료", release.tag_name))
 }
@@ -77,32 +75,37 @@ async fn download_file(client: &reqwest::Client, url: &str, dir: &PathBuf, filen
     Ok(file_path)
 }
 
-async fn run_exe_with_enter(exe_path: &PathBuf, mods_path: &str) -> Result<(), String> {
+async fn run_exe(exe_path: &PathBuf, mods_path: &str) -> Result<(), String> {
     let exe_str = exe_path.to_string_lossy().to_string();
     let mods_path = mods_path.to_string();
 
     tokio::task::spawn_blocking(move || {
-        let mut child = std::process::Command::new(&exe_str)
-            .current_dir(&mods_path)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("{} 실행 실패: {}", exe_str, e))?;
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            // cmd /c로 새 콘솔 창에서 실행하여 출력이 보이도록 함
+            let status = std::process::Command::new("cmd")
+                .args(["/c", &exe_str])
+                .current_dir(&mods_path)
+                .creation_flags(0x00000010) // CREATE_NEW_CONSOLE
+                .status()
+                .map_err(|e| format!("{} 실행 실패: {}", exe_str, e))?;
 
-        // stdin에 엔터 3번 전달
-        if let Some(mut stdin) = child.stdin.take() {
-            let _ = stdin.write_all(b"\r\n\r\n\r\n\r\n");
-            let _ = stdin.flush();
+            if !status.success() {
+                return Err(format!("{} 실행 실패 (코드 {:?})", exe_str, status.code()));
+            }
         }
 
-        // 프로세스 완료까지 대기
-        let output = child.wait_with_output()
-            .map_err(|e| format!("{} 실행 대기 실패: {}", exe_str, e))?;
+        #[cfg(not(target_os = "windows"))]
+        {
+            let status = std::process::Command::new(&exe_str)
+                .current_dir(&mods_path)
+                .status()
+                .map_err(|e| format!("{} 실행 실패: {}", exe_str, e))?;
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("{} 실행 실패 (코드 {:?}): {}", exe_str, output.status.code(), stderr));
+            if !status.success() {
+                return Err(format!("{} 실행 실패 (코드 {:?})", exe_str, status.code()));
+            }
         }
 
         Ok::<(), String>(())
