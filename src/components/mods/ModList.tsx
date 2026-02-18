@@ -57,6 +57,7 @@ export function ModList({
   onDragGroupWarning,
 }: ModListProps) {
   const [showImportMenu, setShowImportMenu] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
 
   const sortedMods = useMemo(() => {
@@ -79,6 +80,17 @@ export function ModList({
 
     return [...favMods, ...nonFavMods];
   }, [mods, favoriteModIds, modOrder, selectedCharacterId]);
+
+  const filteredMods = useMemo(() => {
+    if (!searchQuery.trim()) return sortedMods;
+    const q = searchQuery.toLowerCase();
+    return sortedMods.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.id.toLowerCase().includes(q) ||
+        (m.author && m.author.toLowerCase().includes(q))
+    );
+  }, [sortedMods, searchQuery]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -150,9 +162,23 @@ export function ModList({
               {loading
                 ? "모드를 불러오는 중..."
                 : mods.length > 0
-                  ? `${mods.length}개의 모드 (${mods.filter((m) => m.enabled).length}개 활성)`
+                  ? searchQuery.trim()
+                    ? `${filteredMods.length}개의 모드 (검색 결과)`
+                    : `${mods.length}개의 모드 (${mods.filter((m) => m.enabled).length}개 활성)`
                   : "등록된 모드가 없습니다"}
             </p>
+          </div>
+          <div className="relative">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="모드 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-48 pl-8 pr-3 py-1.5 text-sm rounded-lg border border-white/10 bg-white/5 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon/40 transition-colors"
+            />
           </div>
           <div className="relative" ref={menuRef}>
             <button
@@ -198,23 +224,33 @@ export function ModList({
           <p className="text-sm">불러오는 중...</p>
         </div>
       ) : mods.length > 0 ? (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={sortedMods.map(m => m.id)} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {sortedMods.map((mod) => (
-                <ModCard
-                  key={mod.id}
-                  mod={mod}
-                  isSelected={selectedMod?.id === mod.id}
-                  onSelect={onSelectMod}
-                  onToggle={onToggleMod}
-                  isFavorite={favoriteModIds.includes(mod.id)}
-                  onToggleFavorite={onToggleFavoriteMod}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+        filteredMods.length > 0 ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={filteredMods.map(m => m.id)} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {filteredMods.map((mod) => (
+                  <ModCard
+                    key={mod.id}
+                    mod={mod}
+                    isSelected={selectedMod?.id === mod.id}
+                    onSelect={onSelectMod}
+                    onToggle={onToggleMod}
+                    isFavorite={favoriteModIds.includes(mod.id)}
+                    onToggleFavorite={onToggleFavoriteMod}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-64 text-text-muted">
+            <svg className="w-12 h-12 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <p className="text-lg mb-2">검색 결과가 없습니다</p>
+            <p className="text-sm">다른 검색어를 입력해보세요</p>
+          </div>
+        )
       ) : (
         <div className="flex flex-col items-center justify-center h-64 text-text-muted">
           <svg className="w-12 h-12 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
