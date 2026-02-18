@@ -83,9 +83,8 @@ async fn run_exe(exe_path: &PathBuf, mods_path: &str) -> Result<(), String> {
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
-            // cmd /c로 새 콘솔 창에서 실행하여 출력이 보이도록 함
-            let status = std::process::Command::new("cmd")
-                .args(["/c", &exe_str])
+            // 새 콘솔 창에서 직접 실행
+            let status = std::process::Command::new(&exe_str)
                 .current_dir(&mods_path)
                 .creation_flags(0x00000010) // CREATE_NEW_CONSOLE
                 .status()
