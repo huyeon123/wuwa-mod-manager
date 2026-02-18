@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 
@@ -71,9 +71,12 @@ export function useUpdater({ addToast, autoCheck = false }: UseUpdaterParams = {
     }
   }, [addToast]);
 
+  const hasAutoChecked = useRef(false);
+
   // Auto-check on mount if enabled
   useEffect(() => {
-    if (autoCheck) {
+    if (autoCheck && !hasAutoChecked.current) {
+      hasAutoChecked.current = true;
       checkForUpdates();
     }
   }, [autoCheck, checkForUpdates]);

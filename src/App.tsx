@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
@@ -71,8 +71,13 @@ export function App() {
     autoCheck: true,
   });
 
+  const hasInitialized = useRef(false);
+
   // Load config on startup
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
     getConfig()
       .then((loadedConfig) => {
         setConfig(loadedConfig);
