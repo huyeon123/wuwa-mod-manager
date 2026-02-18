@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getVersion } from "@tauri-apps/api/app";
-import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { AppShell } from "./components/layout/AppShell";
@@ -14,31 +12,24 @@ import { ModDetailPanel } from "./components/mods/ModDetailPanel";
 import { ModImportModal } from "./components/mods/ModImportModal";
 import { PresetList } from "./components/presets/PresetList";
 import { PresetCreateModal } from "./components/presets/PresetCreateModal";
-import type { Character, Mod, Preset, PresetMod, ImportPreviewData, AppConfig } from "./lib/types";
+import type { Character, Mod, AppConfig } from "./lib/types";
 import { ToastContainer, type ToastData } from "./components/ui/Toast";
+import { useUpdater } from "./hooks/useUpdater";
+import { useModImportFlow } from "./hooks/useModImportFlow";
+import { useTauriDragDrop } from "./hooks/useTauriDragDrop";
+import { useSettingsActions } from "./hooks/useSettingsActions";
+import { usePresets } from "./hooks/usePresets";
 import {
   getCharacters,
   getConfig,
   getMods,
   enableMod,
   disableMod,
-  importMod,
   deleteMod,
-  setModsPath,
   getModCounts,
-  setXxmiLauncherPath,
   launchXxmi,
-  autoDetectPaths,
   toggleFavoriteCharacter,
   toggleFavoriteMod,
-  getPresets,
-  createPreset,
-  deletePreset as deletePresetCmd,
-  togglePreset,
-  updatePreset,
-  previewImport,
-  cleanupImportTemp,
-  setAutoLaunchGame,
 } from "./lib/commands";
 
 type View = "characters" | "mods";
@@ -57,19 +48,8 @@ export function App() {
   const [modCounts, setModCounts] = useState<Record<string, [number, number]>>({});
   const [toasts, setToasts] = useState<ToastData[]>([]);
   const [appVersion, setAppVersion] = useState<string>("");
-  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "downloading" | "ready" | "latest" | "error">("idle");
-  const [updateProgress, setUpdateProgress] = useState(0);
-  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [favoriteCharacterIds, setFavoriteCharacterIds] = useState<string[]>([]);
   const [favoriteModIds, setFavoriteModIds] = useState<string[]>([]);
-  const [presets, setPresets] = useState<Preset[]>([]);
-  const [activePresetIds, setActivePresetIds] = useState<string[]>([]);
-  const [showPresetModal, setShowPresetModal] = useState(false);
-  const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
-  const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [importSourcePath, setImportSourcePath] = useState<string | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
   const [config, setConfig] = useState<AppConfig | null>(null);
 
   const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
@@ -85,6 +65,8 @@ export function App() {
   const dismissToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
+
+  const { updateStatus, updateProgress, updateVersion, checkForUpdates } = useUpdater();
 
   // Load config on startup
   useEffect(() => {
@@ -115,8 +97,6 @@ export function App() {
         console.error("Failed to load config:", err);
       });
     getVersion().then(setAppVersion).catch(console.error);
-    // Load presets
-    getPresets().then(setPresets).catch(err => console.error("Failed to load presets:", err));
   }, []);
 
   // Load characters
@@ -128,13 +108,24 @@ export function App() {
       });
   }, []);
 
+  const refreshModCounts = useCallback(
+    async (pathOverride?: string | null) => {
+      const targetPath = pathOverride ?? modsPath;
+      if (!targetPath) return;
+      try {
+        const counts = await getModCounts(targetPath);
+        setModCounts(counts);
+      } catch (err) {
+        console.error("Failed to load mod counts:", err);
+      }
+    },
+    [modsPath],
+  );
+
   // Load mod counts when modsPath changes
   useEffect(() => {
-    if (!modsPath) return;
-    getModCounts(modsPath)
-      .then(setModCounts)
-      .catch((err) => console.error("Failed to load mod counts:", err));
-  }, [modsPath]);
+    refreshModCounts();
+  }, [refreshModCounts]);
 
   const selectedCharacter = characters.find((c) => c.id === selectedCharacterId);
 
@@ -149,10 +140,6 @@ export function App() {
     (sum, [, total]) => sum + total,
     0
   );
-
-  // Calculate preset counts
-  const presetCount = presets.length;
-  const activePresetCount = activePresetIds.length;
 
   // Load mods when character is selected
   const loadMods = useCallback(
@@ -171,6 +158,58 @@ export function App() {
     },
     [modsPath],
   );
+
+  const {
+    importPreview,
+    showImportModal,
+    isImporting,
+    openImportPreviewModal,
+    confirmImport: handleConfirmImport,
+    cancelImport: handleCancelImport,
+    handleDropFiles,
+  } = useModImportFlow({
+    modsPath,
+    selectedCharacterId,
+    addToast,
+    loadMods,
+    refreshModCounts,
+  });
+
+  const {
+    handleSelectModsPath,
+    handleSelectXxmiLauncherPath,
+    handleLaunchXxmi,
+    handleAutoDetect,
+    handleToggleAutoLaunch,
+  } = useSettingsActions({
+    addToast,
+    setModsPathState,
+    setXxmiLauncherPathState,
+    config,
+    setConfig,
+  });
+
+  const {
+    presets,
+    activePresetIds,
+    showPresetModal,
+    editingPreset,
+    openCreatePresetModal,
+    closePresetModal,
+    handleEditPreset,
+    handleTogglePreset,
+    handleDeletePreset,
+    handleCreatePreset,
+    handleUpdatePreset,
+  } = usePresets({
+    modsPath,
+    addToast,
+    refreshModCounts,
+  });
+
+  // Calculate preset counts
+  const presetCount = presets.length;
+  const activePresetCount = activePresetIds.length;
 
   const handleMenuSelect = useCallback((id: MenuId) => {
     setActiveMenu(id);
@@ -234,7 +273,7 @@ export function App() {
           await enableMod(mod.id, selectedCharacterId, modsPath);
         }
         await loadMods(selectedCharacterId);
-        getModCounts(modsPath).then(setModCounts).catch(console.error);
+        refreshModCounts(modsPath);
         // Update selectedMod if it was the toggled one
         setSelectedMod((prev) =>
           prev?.id === mod.id ? { ...prev, enabled: !prev.enabled } : prev,
@@ -244,7 +283,7 @@ export function App() {
         addToast("error", `모드 전환 실패: ${err}`, true);
       }
     },
-    [modsPath, selectedCharacterId, loadMods, addToast],
+    [modsPath, selectedCharacterId, loadMods, addToast, refreshModCounts],
   );
 
   const handleImportModZip = useCallback(async () => {
@@ -257,23 +296,12 @@ export function App() {
         title: "모드 ZIP 파일을 선택하세요",
       });
       if (!selected) return;
-      let preview: ImportPreviewData;
-      try {
-        preview = await previewImport(selected);
-      } catch {
-        // Fallback: extract name from path
-        const fileName = selected.split(/[/\\]/).pop() ?? "unknown_mod";
-        const defaultName = fileName.replace(/\.zip$/i, "");
-        preview = { defaultName, previewImages: [], tempDir: null };
-      }
-      setImportPreview(preview);
-      setImportSourcePath(selected);
-      setShowImportModal(true);
+      await openImportPreviewModal(selected);
     } catch (err) {
       console.error("Failed to import mod:", err);
       addToast("error", `모드 가져오기 실패: ${err}`, true);
     }
-  }, [modsPath, selectedCharacterId, addToast]);
+  }, [modsPath, selectedCharacterId, addToast, openImportPreviewModal]);
 
   const handleImportModFolder = useCallback(async () => {
     if (!modsPath || !selectedCharacterId) return;
@@ -284,119 +312,18 @@ export function App() {
         title: "모드 폴더를 선택하세요",
       });
       if (!selected) return;
-      let preview: ImportPreviewData;
-      try {
-        preview = await previewImport(selected);
-      } catch {
-        const defaultName = selected.split(/[/\\]/).pop() ?? "unknown_mod";
-        preview = { defaultName, previewImages: [], tempDir: null };
-      }
-      setImportPreview(preview);
-      setImportSourcePath(selected);
-      setShowImportModal(true);
+      await openImportPreviewModal(selected);
     } catch (err) {
       console.error("Failed to import mod:", err);
       addToast("error", `모드 가져오기 실패: ${err}`, true);
     }
-  }, [modsPath, selectedCharacterId, addToast]);
+  }, [modsPath, selectedCharacterId, addToast, openImportPreviewModal]);
 
-  const handleConfirmImport = useCallback(async (customName: string) => {
-    if (!modsPath || !selectedCharacterId || !importSourcePath) return;
-    setIsImporting(true);
-    try {
-      await importMod(importSourcePath, selectedCharacterId, modsPath, customName);
-      await loadMods(selectedCharacterId);
-      getModCounts(modsPath).then(setModCounts).catch(console.error);
-      addToast("success", `모드 "${customName}"을(를) 가져왔습니다`);
-    } catch (err) {
-      console.error("Failed to import mod:", err);
-      addToast("error", `모드 가져오기 실패: ${err}`, true);
-    } finally {
-      setIsImporting(false);
-      // Cleanup temp dir if exists
-      if (importPreview?.tempDir) {
-        cleanupImportTemp(importPreview.tempDir).catch(console.error);
-      }
-      setShowImportModal(false);
-      setImportPreview(null);
-      setImportSourcePath(null);
-    }
-  }, [modsPath, selectedCharacterId, importSourcePath, importPreview, loadMods, addToast]);
-
-  const handleCancelImport = useCallback(() => {
-    if (importPreview?.tempDir) {
-      cleanupImportTemp(importPreview.tempDir).catch(console.error);
-    }
-    setShowImportModal(false);
-    setImportPreview(null);
-    setImportSourcePath(null);
-  }, [importPreview]);
-
-  const handleDropFiles = useCallback(async (paths: string[]) => {
-    if (!modsPath || !selectedCharacterId) return;
-    if (paths.length === 1) {
-      // Single file: show preview modal
-      try {
-        let preview: ImportPreviewData;
-        try {
-          preview = await previewImport(paths[0]!);
-        } catch {
-          const fileName = paths[0]!.split(/[/\\]/).pop() ?? "unknown_mod";
-          const defaultName = fileName.replace(/\.zip$/i, "");
-          preview = { defaultName, previewImages: [], tempDir: null };
-        }
-        setImportPreview(preview);
-        setImportSourcePath(paths[0]!);
-        setShowImportModal(true);
-      } catch (err) {
-        console.error("Failed to import mod:", err);
-        addToast("error", `모드 가져오기 실패: ${err}`, true);
-      }
-    } else {
-      // Multiple files: import directly without modal
-      for (const filePath of paths) {
-        try {
-          await importMod(filePath, selectedCharacterId, modsPath);
-        } catch (err) {
-          console.error("Failed to import dropped mod:", err);
-          addToast("error", `모드 가져오기 실패: ${err}`, true);
-        }
-      }
-      await loadMods(selectedCharacterId);
-      getModCounts(modsPath).then(setModCounts).catch(console.error);
-    }
-  }, [modsPath, selectedCharacterId, loadMods, addToast]);
-
-  // Register Tauri drag-drop event listener
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-
-    try {
-      getCurrentWebview().onDragDropEvent((event) => {
-        if (event.payload.type === "enter" || event.payload.type === "over") {
-          setIsDragging(true);
-        } else if (event.payload.type === "leave") {
-          setIsDragging(false);
-        } else if (event.payload.type === "drop") {
-          setIsDragging(false);
-          if (view === "mods" && selectedCharacterId && modsPath) {
-            const paths = event.payload.paths;
-            handleDropFiles(paths);
-          }
-        }
-      }).then((fn) => {
-        unlisten = fn;
-      }).catch((err) => {
-        console.error("Failed to register drag-drop listener:", err);
-      });
-    } catch (err) {
-      console.error("Failed to get webview:", err);
-    }
-
-    return () => {
-      if (unlisten) unlisten();
-    };
-  }, [view, selectedCharacterId, modsPath, handleDropFiles]);
+  useTauriDragDrop({
+    enabled: view === "mods" && Boolean(selectedCharacterId) && Boolean(modsPath),
+    onDraggingChange: setIsDragging,
+    onDropPaths: handleDropFiles,
+  });
 
   const handleDeleteMod = useCallback(
     async (mod: Mod) => {
@@ -405,182 +332,18 @@ export function App() {
         await deleteMod(mod.id, selectedCharacterId, modsPath);
         setSelectedMod(null);
         await loadMods(selectedCharacterId);
-        getModCounts(modsPath).then(setModCounts).catch(console.error);
+        refreshModCounts(modsPath);
       } catch (err) {
         console.error("Failed to delete mod:", err);
         addToast("error", `모드 삭제 실패: ${err}`, true);
       }
     },
-    [modsPath, selectedCharacterId, loadMods, addToast],
+    [modsPath, selectedCharacterId, loadMods, addToast, refreshModCounts],
   );
 
-  const handleSelectModsPath = useCallback(async () => {
-    try {
-      const selected = await open({
-        multiple: false,
-        directory: true,
-        title: "모드 폴더를 선택하세요",
-      });
-      if (selected) {
-        await setModsPath(selected);
-        setModsPathState(selected);
-      }
-    } catch (err) {
-      console.error("Failed to set mods path:", err);
-      addToast("error", `모드 경로 설정 실패: ${err}`, true);
-    }
-  }, [addToast]);
-
-  const handleSelectXxmiLauncherPath = useCallback(async () => {
-    try {
-      const selected = await open({
-        multiple: false,
-        filters: [{ name: "실행 파일", extensions: ["exe"] }],
-        directory: false,
-        title: "XXMI Launcher를 선택하세요",
-      });
-      if (selected) {
-        await setXxmiLauncherPath(selected);
-        setXxmiLauncherPathState(selected);
-      }
-    } catch (err) {
-      console.error("Failed to set XXMI launcher path:", err);
-      addToast("error", `XXMI 런처 경로 설정 실패: ${err}`, true);
-    }
-  }, [addToast]);
-
-  const handleLaunchXxmi = useCallback(async () => {
-    try {
-      await launchXxmi();
-    } catch (err) {
-      console.error("Failed to launch XXMI:", err);
-      addToast("error", `게임 실행 실패: ${err}`, true);
-    }
-  }, [addToast]);
-
-  const handleAutoDetect = useCallback(async (target: "mods" | "launcher" | "all" = "all") => {
-    try {
-      const [detectedModsPath, detectedXxmiPath] = await autoDetectPaths();
-
-      const applyMods = (target === "mods" || target === "all") && detectedModsPath;
-      const applyLauncher = (target === "launcher" || target === "all") && detectedXxmiPath;
-
-      if (applyMods) {
-        setModsPathState(detectedModsPath);
-      }
-      if (applyLauncher) {
-        setXxmiLauncherPathState(detectedXxmiPath);
-      }
-
-      if (applyMods || applyLauncher) {
-        const found = [];
-        if (applyMods) found.push("모드 폴더");
-        if (applyLauncher) found.push("XXMI Launcher");
-        addToast("success", `자동 탐지 성공: ${found.join(", ")}을(를) 찾았습니다.`);
-      } else {
-        const targetName = target === "mods" ? "모드 폴더" : target === "launcher" ? "XXMI Launcher" : "경로";
-        addToast("warning", `자동 탐지: ${targetName}를 찾을 수 없습니다. 수동으로 설정해주세요.`);
-      }
-    } catch (err) {
-      console.error("Failed to auto detect paths:", err);
-      addToast("error", `자동 탐지 중 오류가 발생했습니다: ${err}`, true);
-    }
-  }, [addToast]);
-
-  const handleCheckUpdate = useCallback(async () => {
-    setUpdateStatus("checking");
-    try {
-      const update = await check();
-      if (update?.available) {
-        setUpdateVersion(update.version);
-        setUpdateStatus("downloading");
-        setUpdateProgress(0);
-
-        let contentLength = 0;
-        await update.downloadAndInstall((event) => {
-          switch (event.event) {
-            case "Started":
-              contentLength = event.data.contentLength ?? 0;
-              break;
-            case "Progress":
-              if (contentLength > 0) {
-                setUpdateProgress(Math.round(((event.data.chunkLength ?? 0) / contentLength) * 100));
-              }
-              break;
-            case "Finished":
-              break;
-          }
-        });
-
-        setUpdateStatus("ready");
-      } else {
-        setUpdateStatus("latest");
-        setTimeout(() => setUpdateStatus("idle"), 3000);
-      }
-    } catch (err) {
-      console.error("Update check failed:", err);
-      setUpdateStatus("error");
-    }
-  }, []);
-
-  const handleTogglePreset = useCallback(async (presetId: string, enable: boolean) => {
-    if (!modsPath) return;
-    try {
-      await togglePreset(presetId, enable, modsPath);
-      addToast("success", enable ? "프리셋이 활성화되었습니다" : "프리셋이 비활성화되었습니다");
-      // Track active preset state
-      setActivePresetIds(prev =>
-        enable ? [...prev, presetId] : prev.filter(id => id !== presetId)
-      );
-      // Refresh mod counts
-      getModCounts(modsPath).then(setModCounts).catch(console.error);
-    } catch (err) {
-      console.error("Failed to toggle preset:", err);
-      addToast("error", `프리셋 전환 실패: ${err}`, true);
-    }
-  }, [modsPath, addToast]);
-
-  const handleDeletePreset = useCallback(async (presetId: string) => {
-    try {
-      await deletePresetCmd(presetId);
-      setPresets(prev => prev.filter(p => p.id !== presetId));
-      addToast("success", "프리셋이 삭제되었습니다");
-    } catch (err) {
-      console.error("Failed to delete preset:", err);
-      addToast("error", `프리셋 삭제 실패: ${err}`, true);
-    }
-  }, [addToast]);
-
-  const handleCreatePreset = useCallback(async (name: string, mods: PresetMod[]) => {
-    try {
-      const newPreset = await createPreset(name, mods);
-      setPresets(prev => [...prev, newPreset]);
-      setShowPresetModal(false);
-      addToast("success", `프리셋 "${name}"이(가) 추가되었습니다`);
-    } catch (err) {
-      console.error("Failed to create preset:", err);
-      addToast("error", `프리셋 추가 실패: ${err}`, true);
-    }
-  }, [addToast]);
-
-  const handleUpdatePreset = useCallback(async (name: string, mods: PresetMod[]) => {
-    if (!editingPreset) return;
-    try {
-      const updated = await updatePreset(editingPreset.id, name, mods);
-      setPresets(prev => prev.map(p => p.id === updated.id ? updated : p));
-      setEditingPreset(null);
-      setShowPresetModal(false);
-      addToast("success", `프리셋 "${name}"이(가) 수정되었습니다`);
-    } catch (err) {
-      console.error("Failed to update preset:", err);
-      addToast("error", `프리셋 수정 실패: ${err}`, true);
-    }
-  }, [editingPreset, addToast]);
-
-  const handleEditPreset = useCallback((preset: Preset) => {
-    setEditingPreset(preset);
-    setShowPresetModal(true);
-  }, []);
+  const handleCheckUpdate = useCallback(() => {
+    void checkForUpdates();
+  }, [checkForUpdates]);
 
   const renderContent = () => {
     if (activeMenu === "settings") {
@@ -651,14 +414,7 @@ export function App() {
                 <p className="text-xs text-text-muted mt-0.5">앱 실행 시 자동으로 게임을 시작합니다</p>
               </div>
               <button
-                onClick={async () => {
-                  try {
-                    const newConfig = await setAutoLaunchGame(!config?.autoLaunchGame);
-                    setConfig(newConfig);
-                  } catch (err) {
-                    addToast("error", `설정 변경 실패: ${err}`, true);
-                  }
-                }}
+                onClick={handleToggleAutoLaunch}
                 className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
                   config?.autoLaunchGame
                     ? "bg-neon/30"
@@ -733,7 +489,7 @@ export function App() {
           characters={characters}
           onTogglePreset={handleTogglePreset}
           onDeletePreset={handleDeletePreset}
-          onCreatePreset={() => { setEditingPreset(null); setShowPresetModal(true); }}
+          onCreatePreset={openCreatePresetModal}
           onEditPreset={handleEditPreset}
           modsPath={modsPath}
           activePresetIds={activePresetIds}
@@ -806,10 +562,7 @@ export function App() {
         <PresetCreateModal
           characters={characters}
           modsPath={modsPath}
-          onClose={() => {
-            setShowPresetModal(false);
-            setEditingPreset(null);
-          }}
+          onClose={closePresetModal}
           onSubmit={editingPreset ? handleUpdatePreset : handleCreatePreset}
           getMods={getMods}
           editPreset={editingPreset ?? undefined}
