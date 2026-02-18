@@ -15,6 +15,7 @@ export function usePresets({ modsPath, addToast, refreshModCounts, config }: Use
   const [activePresetIds, setActivePresetIds] = useState<string[]>([]);
   const [showPresetModal, setShowPresetModal] = useState(false);
   const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
+  const [modStatusVersion, setModStatusVersion] = useState(0);
 
   useEffect(() => {
     if (modsPath) {
@@ -59,6 +60,7 @@ export function usePresets({ modsPath, addToast, refreshModCounts, config }: Use
           enable ? [...prev, presetId] : prev.filter((id) => id !== presetId),
         );
         await refreshModCounts(modsPath);
+        setModStatusVersion(v => v + 1);
       } catch (err) {
         console.error("Failed to toggle preset:", err);
         addToast("error", `프리셋 전환 실패: ${err}`, true);
@@ -125,5 +127,6 @@ export function usePresets({ modsPath, addToast, refreshModCounts, config }: Use
     handleDeletePreset,
     handleCreatePreset,
     handleUpdatePreset,
+    modStatusVersion,
   };
 }

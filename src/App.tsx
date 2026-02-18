@@ -209,6 +209,7 @@ export function App() {
     handleDeletePreset,
     handleCreatePreset,
     handleUpdatePreset,
+    modStatusVersion,
   } = usePresets({
     modsPath,
     addToast,
@@ -501,6 +502,7 @@ export function App() {
           onCreatePreset={openCreatePresetModal}
           onEditPreset={handleEditPreset}
           modsPath={modsPath}
+          modStatusVersion={modStatusVersion}
         />
       );
     }

@@ -10,6 +10,7 @@ interface PresetListProps {
   onCreatePreset: () => void;
   onEditPreset: (preset: Preset) => void;
   modsPath: string | null;
+  modStatusVersion: number;
 }
 
 export function PresetList({
@@ -20,6 +21,7 @@ export function PresetList({
   onCreatePreset,
   onEditPreset,
   modsPath,
+  modStatusVersion,
 }: PresetListProps) {
   const [expandedPresetId, setExpandedPresetId] = useState<string | null>(null);
   const [enabledModMap, setEnabledModMap] = useState<Record<string, boolean>>({});
@@ -51,7 +53,7 @@ export function PresetList({
     };
 
     fetchAllModStatuses();
-  }, [modsPath, presets]);
+  }, [modsPath, presets, modStatusVersion]);
 
   const getPresetModStatus = (preset: Preset): "all" | "partial" | "none" => {
     if (Object.keys(enabledModMap).length === 0) return "none"; // 아직 로딩중
