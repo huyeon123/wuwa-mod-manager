@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { createPreset, deletePreset, getPresets, togglePreset, updatePreset } from "../lib/commands";
+import { createPreset, deletePreset, getPresets, syncPresets, togglePreset, updatePreset } from "../lib/commands";
 import type { Preset, PresetMod, AppConfig } from "../lib/types";
 import type { ToastData } from "../components/ui/Toast";
 
@@ -17,10 +17,16 @@ export function usePresets({ modsPath, addToast, refreshModCounts, config }: Use
   const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
 
   useEffect(() => {
-    getPresets()
-      .then(setPresets)
-      .catch((err) => console.error("Failed to load presets:", err));
-  }, []);
+    if (modsPath) {
+      syncPresets(modsPath)
+        .then(setPresets)
+        .catch((err) => console.error("Failed to sync presets:", err));
+    } else {
+      getPresets()
+        .then(setPresets)
+        .catch((err) => console.error("Failed to load presets:", err));
+    }
+  }, [modsPath]);
 
   useEffect(() => {
     if (config?.activePresetIds) {

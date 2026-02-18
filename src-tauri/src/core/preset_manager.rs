@@ -149,3 +149,39 @@ pub async fn remove_mod_from_presets(
 
     Ok(())
 }
+
+/// 모든 프리셋에서 디스크에 존재하지 않는 모드를 제거하고 정리된 프리셋 목록 반환
+pub async fn sync_presets(
+    mods_path: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<Vec<Preset>, String> {
+    let mut config = config_manager::load_config(app_handle).await?;
+    let mut changed = false;
+
+    // 각 프리셋에서 디스크에 없는 모드 제거
+    for preset in &mut config.presets {
+        let before_len = preset.mods.len();
+        preset.mods.retain(|m| mod_manager::mod_exists(&m.mod_id, &m.character_id, mods_path));
+        if preset.mods.len() != before_len {
+            changed = true;
+        }
+    }
+
+    // 빈 프리셋 삭제
+    let empty_ids: Vec<String> = config.presets.iter()
+        .filter(|p| p.mods.is_empty())
+        .map(|p| p.id.clone())
+        .collect();
+
+    if !empty_ids.is_empty() {
+        config.presets.retain(|p| !p.mods.is_empty());
+        config.active_preset_ids.retain(|id| !empty_ids.contains(id));
+        changed = true;
+    }
+
+    if changed {
+        config_manager::save_config(&config, app_handle).await?;
+    }
+
+    Ok(config.presets)
+}

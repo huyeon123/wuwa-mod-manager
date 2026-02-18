@@ -44,3 +44,11 @@ pub async fn update_preset(
 ) -> Result<Preset, String> {
     preset_manager::update_preset(&preset_id, name, mods, &app_handle).await
 }
+
+#[tauri::command]
+pub async fn sync_presets(
+    mods_path: String,
+    app_handle: tauri::AppHandle,
+) -> Result<Vec<Preset>, String> {
+    preset_manager::sync_presets(&mods_path, &app_handle).await
+}

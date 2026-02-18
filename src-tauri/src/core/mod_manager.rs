@@ -531,6 +531,12 @@ pub async fn get_mod_counts(
     Ok(counts)
 }
 
+/// 특정 모드가 디스크에 존재하는지 확인 (활성/비활성 모두 체크)
+pub fn mod_exists(mod_id: &str, character_id: &str, mods_path: &str) -> bool {
+    let base = character_base_path(mods_path, character_id);
+    enabled_mod_path(&base, mod_id).exists() || disabled_mod_path(&base, mod_id).exists()
+}
+
 async fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
     tokio::fs::create_dir_all(dst)
         .await

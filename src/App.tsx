@@ -501,7 +501,6 @@ export function App() {
           onCreatePreset={openCreatePresetModal}
           onEditPreset={handleEditPreset}
           modsPath={modsPath}
-          activePresetIds={activePresetIds}
         />
       );
     }

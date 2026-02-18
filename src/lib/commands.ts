@@ -105,3 +105,7 @@ export async function cleanupImportTemp(tempDir: string): Promise<void> {
 export async function setAutoLaunchGame(enabled: boolean): Promise<AppConfig> {
   return invoke<AppConfig>("set_auto_launch_game", { enabled });
 }
+
+export async function syncPresets(modsPath: string): Promise<Preset[]> {
+  return invoke<Preset[]>("sync_presets", { modsPath });
+}

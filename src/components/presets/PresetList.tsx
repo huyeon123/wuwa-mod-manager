@@ -5,7 +5,6 @@ import { getMods } from "@/lib/commands";
 interface PresetListProps {
   presets: Preset[];
   characters: Character[];
-  activePresetIds: string[];
   onTogglePreset: (presetId: string, enable: boolean) => void;
   onDeletePreset: (presetId: string) => void;
   onCreatePreset: () => void;
@@ -16,7 +15,6 @@ interface PresetListProps {
 export function PresetList({
   presets,
   characters,
-  activePresetIds,
   onTogglePreset,
   onDeletePreset,
   onCreatePreset,
@@ -30,18 +28,16 @@ export function PresetList({
     return characters.find((c) => c.id === characterId)?.name ?? characterId;
   };
 
+  // 모든 프리셋의 모드 상태를 조회
   useEffect(() => {
-    if (!expandedPresetId || !modsPath) return;
+    if (!modsPath || presets.length === 0) return;
 
-    const expandedPreset = presets.find((p) => p.id === expandedPresetId);
-    if (!expandedPreset) return;
+    // 모든 프리셋에서 참조하는 캐릭터 ID 수집 (중복 제거)
+    const allCharacterIds = [...new Set(presets.flatMap((p) => p.mods.map((m) => m.characterId)))];
 
-    // 프리셋에 포함된 캐릭터 ID 목록 (중복 제거)
-    const characterIds = [...new Set(expandedPreset.mods.map((m) => m.characterId))];
-
-    const fetchModStatuses = async () => {
+    const fetchAllModStatuses = async () => {
       const newMap: Record<string, boolean> = {};
-      for (const charId of characterIds) {
+      for (const charId of allCharacterIds) {
         try {
           const mods = await getMods(charId, modsPath);
           for (const mod of mods) {
@@ -54,8 +50,21 @@ export function PresetList({
       setEnabledModMap(newMap);
     };
 
-    fetchModStatuses();
-  }, [expandedPresetId, modsPath, presets]);
+    fetchAllModStatuses();
+  }, [modsPath, presets]);
+
+  const getPresetModStatus = (preset: Preset): "all" | "partial" | "none" => {
+    if (Object.keys(enabledModMap).length === 0) return "none"; // 아직 로딩중
+
+    const existingMods = preset.mods.filter((m) => `${m.characterId}/${m.modId}` in enabledModMap);
+    if (existingMods.length === 0) return "none";
+
+    const enabledCount = existingMods.filter((m) => enabledModMap[`${m.characterId}/${m.modId}`]).length;
+
+    if (enabledCount === 0) return "none";
+    if (enabledCount === existingMods.length) return "all";
+    return "partial";
+  };
 
   return (
     <main className="flex-1 overflow-y-auto p-6">
@@ -106,6 +115,10 @@ export function PresetList({
               return acc;
             }, {});
 
+            const presetStatus = getPresetModStatus(preset);
+            const isActive = presetStatus !== "none";
+            const isPartial = presetStatus === "partial";
+
             return (
               <div
                 key={preset.id}
@@ -147,22 +160,44 @@ export function PresetList({
                   {/* Toggle Buttons */}
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => onTogglePreset(preset.id, !activePresetIds.includes(preset.id))}
+                      onClick={() => onTogglePreset(preset.id, !isActive)}
                       className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${
-                        activePresetIds.includes(preset.id)
+                        isActive
                           ? "bg-neon/30"
                           : "bg-white/10"
                       }`}
-                      title={activePresetIds.includes(preset.id) ? "프리셋 비활성화" : "프리셋 활성화"}
+                      title={isActive ? "프리셋 비활성화" : "프리셋 활성화"}
                     >
                       <span
                         className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${
-                          activePresetIds.includes(preset.id)
+                          isActive
                             ? "translate-x-5 bg-neon"
                             : "translate-x-0 bg-white/40"
                         }`}
                       />
                     </button>
+
+                    {/* 부분 적용 경고 아이콘 */}
+                    {isPartial && (
+                      <div className="relative group">
+                        <svg
+                          className="w-4 h-4 text-yellow-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                          />
+                        </svg>
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 border border-white/10 rounded-lg text-xs text-yellow-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                          일부 모드가 미적용중입니다
+                        </div>
+                      </div>
+                    )}
                     <button
                       onClick={() => onEditPreset(preset)}
                       className="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-neon hover:bg-neon/10 transition-colors"
