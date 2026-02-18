@@ -282,9 +282,9 @@ export function App() {
         } else {
           await enableMod(mod.id, selectedCharacterId, modsPath);
         }
-        await loadMods(selectedCharacterId);
+        const updatedMods = await getMods(selectedCharacterId, modsPath);
+        setMods(updatedMods);
         refreshModCounts(modsPath);
-        // Update selectedMod if it was the toggled one
         setSelectedMod((prev) =>
           prev?.id === mod.id ? { ...prev, enabled: !prev.enabled } : prev,
         );
@@ -293,7 +293,7 @@ export function App() {
         addToast("error", `모드 전환 실패: ${err}`, true);
       }
     },
-    [modsPath, selectedCharacterId, loadMods, addToast, refreshModCounts],
+    [modsPath, selectedCharacterId, addToast, refreshModCounts],
   );
 
   const handleImportModZip = useCallback(async () => {
