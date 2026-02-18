@@ -1,4 +1,6 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { Mod } from "@/lib/types";
 
 interface ModCardProps {
@@ -11,10 +13,30 @@ interface ModCardProps {
 }
 
 export function ModCard({ mod, isSelected, onSelect, onToggle, isFavorite, onToggleFavorite }: ModCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: mod.id });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition: isDragging ? undefined : transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
   return (
     <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
       onClick={() => onSelect(mod)}
-      className={`group relative rounded-xl border p-3 cursor-pointer transition-all duration-200 ${
+      className={`group relative rounded-xl border p-3 cursor-grab active:cursor-grabbing transition-all duration-200 ${
         isSelected
           ? "border-neon/50 bg-neon/5 shadow-[0_0_15px_rgba(53,243,229,0.1)]"
           : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8"

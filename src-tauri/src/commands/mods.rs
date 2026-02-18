@@ -1,4 +1,4 @@
-use crate::core::mod_manager;
+use crate::core::{mod_manager, preset_manager};
 use crate::models::{GameMod, ImportPreviewData};
 
 #[tauri::command]
@@ -42,8 +42,16 @@ pub async fn delete_mod(
     mod_id: String,
     character_id: String,
     mods_path: String,
+    app_handle: tauri::AppHandle,
 ) -> Result<bool, String> {
-    mod_manager::delete_mod(&mod_id, &character_id, &mods_path).await
+    let result = mod_manager::delete_mod(&mod_id, &character_id, &mods_path).await?;
+
+    // 삭제된 모드를 참조하는 프리셋 자동 정리
+    if let Err(e) = preset_manager::remove_mod_from_presets(&character_id, &mod_id, &app_handle).await {
+        eprintln!("프리셋 정리 실패: {}", e);
+    }
+
+    Ok(result)
 }
 
 #[tauri::command]

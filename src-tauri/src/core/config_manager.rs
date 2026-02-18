@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::Manager;
 use crate::models::AppConfig;
 
@@ -9,6 +9,21 @@ fn config_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| format!("앱 설정 경로를 가져올 수 없습니다: {}", e))?;
 
     Ok(app_dir.join("config.json"))
+}
+
+fn first_existing_path(candidates: &[String]) -> Option<String> {
+    candidates
+        .iter()
+        .find(|path| Path::new(path.as_str()).exists())
+        .cloned()
+}
+
+fn toggle_string_entry(entries: &mut Vec<String>, value: String) {
+    if let Some(pos) = entries.iter().position(|item| item == &value) {
+        entries.remove(pos);
+    } else {
+        entries.push(value);
+    }
 }
 
 pub async fn load_config(app_handle: &tauri::AppHandle) -> Result<AppConfig, String> {
@@ -82,7 +97,6 @@ pub async fn set_xxmi_launcher_path(
 
 pub async fn auto_detect_paths() -> Result<(Option<String>, Option<String>), String> {
     let mut mods_path: Option<String> = None;
-    let mut xxmi_launcher_path: Option<String> = None;
 
     let home = dirs::home_dir()
         .map(|p| p.to_string_lossy().to_string())
@@ -156,12 +170,7 @@ pub async fn auto_detect_paths() -> Result<(Option<String>, Option<String>), Str
         ]);
     }
 
-    for p in &launcher_candidates {
-        if std::path::Path::new(p).exists() {
-            xxmi_launcher_path = Some(p.clone());
-            break;
-        }
-    }
+    let xxmi_launcher_path = first_existing_path(&launcher_candidates);
 
     // Try to find Mods folder relative to launcher location
     if let Some(ref launcher) = xxmi_launcher_path {
@@ -176,12 +185,7 @@ pub async fn auto_detect_paths() -> Result<(Option<String>, Option<String>), Str
 
     // Also check common Mods folder locations independently
     if mods_path.is_none() {
-        for p in &mods_candidates {
-            if std::path::Path::new(p).exists() {
-                mods_path = Some(p.clone());
-                break;
-            }
-        }
+        mods_path = first_existing_path(&mods_candidates);
     }
 
     Ok((mods_path, xxmi_launcher_path))
@@ -193,11 +197,7 @@ pub async fn toggle_favorite_character(
 ) -> Result<AppConfig, String> {
     let mut config = load_config(app_handle).await?;
 
-    if let Some(pos) = config.favorite_characters.iter().position(|id| id == character_id) {
-        config.favorite_characters.remove(pos);
-    } else {
-        config.favorite_characters.push(character_id.to_string());
-    }
+    toggle_string_entry(&mut config.favorite_characters, character_id.to_string());
 
     save_config(&config, app_handle).await?;
     Ok(config)
@@ -211,11 +211,7 @@ pub async fn toggle_favorite_mod(
     let mut config = load_config(app_handle).await?;
     let key = format!("{}/{}", character_id, mod_id);
 
-    if let Some(pos) = config.favorite_mods.iter().position(|id| id == &key) {
-        config.favorite_mods.remove(pos);
-    } else {
-        config.favorite_mods.push(key);
-    }
+    toggle_string_entry(&mut config.favorite_mods, key);
 
     save_config(&config, app_handle).await?;
     Ok(config)
@@ -227,6 +223,17 @@ pub async fn set_auto_launch_game(
 ) -> Result<AppConfig, String> {
     let mut config = load_config(app_handle).await?;
     config.auto_launch_game = enabled;
+    save_config(&config, app_handle).await?;
+    Ok(config)
+}
+
+pub async fn set_mod_order(
+    character_id: &str,
+    mod_ids: Vec<String>,
+    app_handle: &tauri::AppHandle,
+) -> Result<AppConfig, String> {
+    let mut config = load_config(app_handle).await?;
+    config.mod_order.insert(character_id.to_string(), mod_ids);
     save_config(&config, app_handle).await?;
     Ok(config)
 }
