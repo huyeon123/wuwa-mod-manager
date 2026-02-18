@@ -38,6 +38,9 @@ pub fn run() {
             commands::mod_fixer::run_all_fixers,
             commands::mod_fixer::run_stable_textures,
             commands::mod_fixer::run_fixer_only,
+            commands::gamebanana::browse_mods,
+            commands::gamebanana::browse_mod_detail,
+            commands::gamebanana::download_and_import_mod,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

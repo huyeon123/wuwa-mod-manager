@@ -12,6 +12,7 @@ import { ModDetailPanel } from "./components/mods/ModDetailPanel";
 import { ModImportModal } from "./components/mods/ModImportModal";
 import { PresetList } from "./components/presets/PresetList";
 import { PresetCreateModal } from "./components/presets/PresetCreateModal";
+import { BrowseView } from "./components/browse/BrowseView";
 import type { Character, Mod, AppConfig } from "./lib/types";
 import { ToastContainer, type ToastData } from "./components/ui/Toast";
 import { useUpdater } from "./hooks/useUpdater";
@@ -415,6 +416,17 @@ export function App() {
   }, [modsPath, fixerRunning, addToast]);
 
   const renderContent = () => {
+    if (activeMenu === "browse") {
+      return (
+        <BrowseView
+          characters={characters}
+          modsPath={modsPath}
+          addToast={addToast}
+          refreshModCounts={refreshModCounts}
+        />
+      );
+    }
+
     if (activeMenu === "settings") {
       return (
         <main className="flex-1 overflow-y-auto p-6">
