@@ -83,10 +83,11 @@ async fn run_exe(exe_path: &PathBuf, mods_path: &str) -> Result<(), String> {
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
-            // 새 콘솔 창에서 직접 실행
-            let status = std::process::Command::new(&exe_str)
+            // start /wait로 Windows가 새 콘솔 창을 생성하여 실행
+            let status = std::process::Command::new("cmd")
+                .args(["/c", &format!("start /wait \"Mod Fixer\" \"{}\"", exe_str)])
                 .current_dir(&mods_path)
-                .creation_flags(0x00000010) // CREATE_NEW_CONSOLE
+                .creation_flags(0x08000000) // CREATE_NO_WINDOW (cmd 자체는 숨김)
                 .status()
                 .map_err(|e| format!("{} 실행 실패: {}", exe_str, e))?;
 
