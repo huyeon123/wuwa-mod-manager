@@ -53,12 +53,12 @@ export function useSettingsActions({
       {
         multiple: false,
         directory: true,
-        title: "¸ğµå Æú´õ¸¦ ¼±ÅÃÇÏ¼¼¿ä",
+        title: "ëª¨ë“œ í´ë”ë¥¼ ì„ íƒí•˜ì„¸ìš”",
       },
       setModsPath,
       setModsPathState,
       "Failed to set mods path:",
-      "¸ğµå °æ·Î ¼³Á¤ ½ÇÆĞ",
+      "ëª¨ë“œ ê²½ë¡œ ì„¤ì • ì‹¤íŒ¨",
     );
   }, [selectAndPersistPath, setModsPathState]);
 
@@ -66,14 +66,14 @@ export function useSettingsActions({
     await selectAndPersistPath(
       {
         multiple: false,
-        filters: [{ name: "½ÇÇà ÆÄÀÏ", extensions: ["exe"] }],
+        filters: [{ name: "ì‹¤í–‰ íŒŒì¼", extensions: ["exe"] }],
         directory: false,
-        title: "XXMI Launcher¸¦ ¼±ÅÃÇÏ¼¼¿ä",
+        title: "XXMI Launcherë¥¼ ì„ íƒí•˜ì„¸ìš”",
       },
       setXxmiLauncherPath,
       setXxmiLauncherPathState,
       "Failed to set XXMI launcher path:",
-      "XXMI ·±Ã³ °æ·Î ¼³Á¤ ½ÇÆĞ",
+      "XXMI ëŸ°ì²˜ ê²½ë¡œ ì„¤ì • ì‹¤íŒ¨",
     );
   }, [selectAndPersistPath, setXxmiLauncherPathState]);
 
@@ -82,7 +82,7 @@ export function useSettingsActions({
       await launchXxmi();
     } catch (err) {
       console.error("Failed to launch XXMI:", err);
-      addToast("error", `°ÔÀÓ ½ÇÇà ½ÇÆĞ: ${err}`, true);
+      addToast("error", `ê²Œì„ ì‹¤í–‰ ì‹¤íŒ¨: ${err}`, true);
     }
   }, [addToast]);
 
@@ -104,24 +104,24 @@ export function useSettingsActions({
 
         if (applyMods || applyLauncher) {
           const found = [];
-          if (applyMods) found.push("¸ğµå Æú´õ");
+          if (applyMods) found.push("ëª¨ë“œ í´ë”");
           if (applyLauncher) found.push("XXMI Launcher");
-          addToast("success", `ÀÚµ¿ Å½Áö ¼º°ø: ${found.join(", ")}À»(¸¦) Ã£¾Ò½À´Ï´Ù.`);
+          addToast("success", `ìë™ íƒì§€ ì„±ê³µ: ${found.join(", ")}ì„(ë¥¼) ì°¾ì•˜ìŠµë‹ˆë‹¤.`);
         } else {
           const targetName =
             target === "mods"
-              ? "¸ğµå Æú´õ"
+              ? "ëª¨ë“œ í´ë”"
               : target === "launcher"
                 ? "XXMI Launcher"
-                : "°æ·Î";
+                : "ê²½ë¡œ";
           addToast(
             "warning",
-            `ÀÚµ¿ Å½Áö: ${targetName}¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù. ¼öµ¿À¸·Î ¼³Á¤ÇØÁÖ¼¼¿ä.`,
+            `ìë™ íƒì§€: ${targetName}ë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤. ìˆ˜ë™ìœ¼ë¡œ ì„¤ì •í•´ì£¼ì„¸ìš”.`,
           );
         }
       } catch (err) {
         console.error("Failed to auto detect paths:", err);
-        addToast("error", `ÀÚµ¿ Å½Áö Áß ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù: ${err}`, true);
+        addToast("error", `ìë™ íƒì§€ ì¤‘ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤: ${err}`, true);
       }
     },
     [addToast, setModsPathState, setXxmiLauncherPathState],
@@ -133,7 +133,7 @@ export function useSettingsActions({
       const newConfig = await setAutoLaunchGame(nextEnabled);
       setConfig(newConfig);
     } catch (err) {
-      addToast("error", `¼³Á¤ º¯°æ ½ÇÆĞ: ${err}`, true);
+      addToast("error", `ì„¤ì • ë³€ê²½ ì‹¤íŒ¨: ${err}`, true);
     }
   }, [config?.autoLaunchGame, setConfig, addToast]);
 

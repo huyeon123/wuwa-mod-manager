@@ -48,14 +48,14 @@ export function usePresets({ modsPath, addToast, refreshModCounts, config }: Use
       if (!modsPath) return;
       try {
         await togglePreset(presetId, enable, modsPath);
-        addToast("success", enable ? "�������� Ȱ��ȭ�Ǿ����ϴ�" : "�������� ��Ȱ��ȭ�Ǿ����ϴ�");
+        addToast("success", enable ? "프리셋이 활성화되었습니다" : "프리셋이 비활성화되었습니다");
         setActivePresetIds((prev) =>
           enable ? [...prev, presetId] : prev.filter((id) => id !== presetId),
         );
         await refreshModCounts(modsPath);
       } catch (err) {
         console.error("Failed to toggle preset:", err);
-        addToast("error", `������ ��ȯ ����: ${err}`, true);
+        addToast("error", `프리셋 전환 실패: ${err}`, true);
       }
     },
     [modsPath, addToast, refreshModCounts],
@@ -67,10 +67,10 @@ export function usePresets({ modsPath, addToast, refreshModCounts, config }: Use
         await deletePreset(presetId);
         setPresets((prev) => prev.filter((p) => p.id !== presetId));
         setActivePresetIds((prev) => prev.filter((id) => id !== presetId));
-        addToast("success", "�������� �����Ǿ����ϴ�");
+        addToast("success", "프리셋이 삭제되었습니다");
       } catch (err) {
         console.error("Failed to delete preset:", err);
-        addToast("error", `������ ���� ����: ${err}`, true);
+        addToast("error", `프리셋 삭제 실패: ${err}`, true);
       }
     },
     [addToast],
@@ -82,10 +82,10 @@ export function usePresets({ modsPath, addToast, refreshModCounts, config }: Use
         const newPreset = await createPreset(name, mods);
         setPresets((prev) => [...prev, newPreset]);
         closePresetModal();
-        addToast("success", `������ \"${name}\"��(��) �߰��Ǿ����ϴ�`);
+        addToast("success", `프리셋 "${name}"이(가) 추가되었습니다`);
       } catch (err) {
         console.error("Failed to create preset:", err);
-        addToast("error", `������ �߰� ����: ${err}`, true);
+        addToast("error", `프리셋 추가 실패: ${err}`, true);
       }
     },
     [addToast, closePresetModal],
@@ -98,10 +98,10 @@ export function usePresets({ modsPath, addToast, refreshModCounts, config }: Use
         const updated = await updatePreset(editingPreset.id, name, mods);
         setPresets((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
         closePresetModal();
-        addToast("success", `������ \"${name}\"��(��) �����Ǿ����ϴ�`);
+        addToast("success", `프리셋 "${name}"이(가) 수정되었습니다`);
       } catch (err) {
         console.error("Failed to update preset:", err);
-        addToast("error", `������ ���� ����: ${err}`, true);
+        addToast("error", `프리셋 수정 실패: ${err}`, true);
       }
     },
     [editingPreset, addToast, closePresetModal],
