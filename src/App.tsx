@@ -552,6 +552,7 @@ export function App() {
         modOrder={config?.modOrder ?? {}}
         onReorderMods={handleReorderMods}
         selectedCharacterId={selectedCharacterId}
+        onDragGroupWarning={() => addToast("warning", "즐겨찾기 모드는 즐겨찾기 영역 내에서만 이동할 수 있습니다")}
       />
     );
   };

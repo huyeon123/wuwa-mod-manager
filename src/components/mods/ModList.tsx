@@ -34,6 +34,7 @@ interface ModListProps {
   modOrder: Record<string, string[]>;
   onReorderMods: (characterId: string, modIds: string[]) => void;
   selectedCharacterId: string | null;
+  onDragGroupWarning?: () => void;
 }
 
 export function ModList({
@@ -53,6 +54,7 @@ export function ModList({
   modOrder,
   onReorderMods,
   selectedCharacterId,
+  onDragGroupWarning,
 }: ModListProps) {
   const [showImportMenu, setShowImportMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -103,7 +105,10 @@ export function ModList({
     // 즐겨찾기끼리만, 비즐겨찾기끼리만 이동 가능
     const activeIsFav = favoriteModIds.includes(activeId);
     const overIsFav = favoriteModIds.includes(overId);
-    if (activeIsFav !== overIsFav) return;
+    if (activeIsFav !== overIsFav) {
+      onDragGroupWarning?.();
+      return;
+    }
 
     const oldIndex = sortedMods.findIndex(m => m.id === activeId);
     const newIndex = sortedMods.findIndex(m => m.id === overId);
@@ -111,7 +116,7 @@ export function ModList({
 
     const newSorted = arrayMove(sortedMods, oldIndex, newIndex);
     onReorderMods(selectedCharacterId, newSorted.map(m => m.id));
-  }, [sortedMods, selectedCharacterId, favoriteModIds, onReorderMods]);
+  }, [sortedMods, selectedCharacterId, favoriteModIds, onReorderMods, onDragGroupWarning]);
 
   return (
     <main className="flex-1 overflow-y-auto p-6 relative">
