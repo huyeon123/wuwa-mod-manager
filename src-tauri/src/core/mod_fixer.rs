@@ -80,31 +80,13 @@ async fn run_exe(exe_path: &PathBuf, mods_path: &str) -> Result<(), String> {
     let mods_path = mods_path.to_string();
 
     tokio::task::spawn_blocking(move || {
-        #[cfg(target_os = "windows")]
-        {
-            use std::os::windows::process::CommandExt;
-            // 새 콘솔 창에서 직접 실행 (사용자가 직접 상호작용)
-            let status = std::process::Command::new(&exe_str)
-                .current_dir(&mods_path)
-                .creation_flags(0x00000010) // CREATE_NEW_CONSOLE
-                .status()
-                .map_err(|e| format!("{} 실행 실패: {}", exe_str, e))?;
+        let status = std::process::Command::new(&exe_str)
+            .current_dir(&mods_path)
+            .status()
+            .map_err(|e| format!("{} 실행 실패: {}", exe_str, e))?;
 
-            if !status.success() {
-                return Err(format!("{} 실행 실패 (코드 {:?})", exe_str, status.code()));
-            }
-        }
-
-        #[cfg(not(target_os = "windows"))]
-        {
-            let status = std::process::Command::new(&exe_str)
-                .current_dir(&mods_path)
-                .status()
-                .map_err(|e| format!("{} 실행 실패: {}", exe_str, e))?;
-
-            if !status.success() {
-                return Err(format!("{} 실행 실패 (코드 {:?})", exe_str, status.code()));
-            }
+        if !status.success() {
+            return Err(format!("{} 실행 실패 (코드 {:?})", exe_str, status.code()));
         }
 
         Ok::<(), String>(())
