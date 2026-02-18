@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Preset, Character } from "@/lib/types";
+import { getMods } from "@/lib/commands";
 
 interface PresetListProps {
   presets: Preset[];
@@ -23,10 +24,38 @@ export function PresetList({
   modsPath,
 }: PresetListProps) {
   const [expandedPresetId, setExpandedPresetId] = useState<string | null>(null);
+  const [enabledModMap, setEnabledModMap] = useState<Record<string, boolean>>({});
 
   const getCharacterName = (characterId: string) => {
     return characters.find((c) => c.id === characterId)?.name ?? characterId;
   };
+
+  useEffect(() => {
+    if (!expandedPresetId || !modsPath) return;
+
+    const expandedPreset = presets.find((p) => p.id === expandedPresetId);
+    if (!expandedPreset) return;
+
+    // 프리셋에 포함된 캐릭터 ID 목록 (중복 제거)
+    const characterIds = [...new Set(expandedPreset.mods.map((m) => m.characterId))];
+
+    const fetchModStatuses = async () => {
+      const newMap: Record<string, boolean> = {};
+      for (const charId of characterIds) {
+        try {
+          const mods = await getMods(charId, modsPath);
+          for (const mod of mods) {
+            newMap[`${charId}/${mod.id}`] = mod.enabled;
+          }
+        } catch {
+          // 조회 실패 시 무시
+        }
+      }
+      setEnabledModMap(newMap);
+    };
+
+    fetchModStatuses();
+  }, [expandedPresetId, modsPath, presets]);
 
   return (
     <main className="flex-1 overflow-y-auto p-6">
@@ -185,14 +214,40 @@ export function PresetList({
                               {getCharacterName(characterId)}
                             </p>
                             <div className="flex flex-wrap gap-1.5">
-                              {modIds.map((modId) => (
-                                <span
-                                  key={modId}
-                                  className="px-2 py-0.5 rounded-full bg-white/5 text-xs text-text-muted border border-white/10"
-                                >
-                                  {modId}
-                                </span>
-                              ))}
+                              {modIds.map((modId) => {
+                                const key = `${characterId}/${modId}`;
+                                const isEnabled = enabledModMap[key];
+                                const isLoaded = key in enabledModMap;
+
+                                return (
+                                  <span
+                                    key={modId}
+                                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs border transition-colors ${
+                                      !isLoaded
+                                        ? "bg-white/5 text-text-muted border-white/10"
+                                        : isEnabled
+                                          ? "bg-neon/10 text-neon border-neon/30"
+                                          : "bg-white/5 text-text-muted border-white/10 opacity-50"
+                                    }`}
+                                    title={
+                                      !isLoaded
+                                        ? "상태 확인 중..."
+                                        : isEnabled
+                                          ? "적용 중"
+                                          : "미적용"
+                                    }
+                                  >
+                                    {isLoaded && (
+                                      <span
+                                        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                          isEnabled ? "bg-neon" : "bg-white/30"
+                                        }`}
+                                      />
+                                    )}
+                                    {modId}
+                                  </span>
+                                );
+                              })}
                             </div>
                           </div>
                         ),
