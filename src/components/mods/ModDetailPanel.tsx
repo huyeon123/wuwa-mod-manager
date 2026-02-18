@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openPath } from "@tauri-apps/plugin-opener";
 import type { Mod } from "@/lib/types";
 
 interface ModDetailPanelProps {
@@ -157,7 +157,7 @@ export function ModDetailPanel({ mod, onToggle, onDelete, isFavorite, onToggleFa
                 {mod.path.split(/[/\\]/).pop()}
               </span>
               <button
-                onClick={() => revealItemInDir(mod.path)}
+                onClick={() => openPath(mod.path)}
                 className="flex-shrink-0 text-text-muted hover:text-neon transition-colors"
                 title="폴더 열기"
               >
