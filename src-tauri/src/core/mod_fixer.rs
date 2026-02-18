@@ -92,7 +92,7 @@ async fn run_exe_with_enter(exe_path: &PathBuf, mods_path: &str) -> Result<(), S
 
         // stdin에 엔터 3번 전달
         if let Some(mut stdin) = child.stdin.take() {
-            let _ = stdin.write_all(b"\r\n\r\n\r\n");
+            let _ = stdin.write_all(b"\r\n\r\n\r\n\r\n");
             let _ = stdin.flush();
         }
 
