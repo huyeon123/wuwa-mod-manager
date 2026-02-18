@@ -22,8 +22,7 @@ interface UseGameBananaReturn {
 }
 
 export function useGameBanana(): UseGameBananaReturn {
-  const [allMods, setAllMods] = useState<GameBananaMod[]>([]);
-  const [filteredMods, setFilteredMods] = useState<GameBananaMod[]>([]);
+  const [mods, setMods] = useState<GameBananaMod[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -36,9 +35,11 @@ export function useGameBanana(): UseGameBananaReturn {
 
   const pageRef = useRef(1);
   const perPage = 20;
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentSearchRef = useRef("");
 
   const loadPage = useCallback(
-    async (page: number, isInitial: boolean) => {
+    async (page: number, isInitial: boolean, searchTerm: string) => {
       try {
         if (isInitial) {
           setLoading(true);
@@ -47,14 +48,12 @@ export function useGameBanana(): UseGameBananaReturn {
         }
         setError(null);
 
-        const result = await browseMods(page, perPage, sort);
+        const result = await browseMods(page, perPage, sort, searchTerm);
 
         if (isInitial) {
-          setAllMods(result.mods);
-          setFilteredMods(result.mods);
+          setMods(result.mods);
         } else {
-          setAllMods((prev) => [...prev, ...result.mods]);
-          setFilteredMods((prev) => [...prev, ...result.mods]);
+          setMods((prev) => [...prev, ...result.mods]);
         }
 
         setTotalCount(result.totalCount);
@@ -75,13 +74,33 @@ export function useGameBanana(): UseGameBananaReturn {
   const refresh = useCallback(async () => {
     pageRef.current = 1;
     setHasMore(true);
-    await loadPage(1, true);
+    await loadPage(1, true, currentSearchRef.current);
   }, [loadPage]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
-    await loadPage(pageRef.current + 1, false);
+    await loadPage(pageRef.current + 1, false, currentSearchRef.current);
   }, [loadPage, loadingMore, hasMore]);
+
+  const handleSearchChange = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+
+      // Debounce: clear previous timer
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+
+      // Debounce search by 500ms
+      searchTimerRef.current = setTimeout(() => {
+        currentSearchRef.current = query.trim();
+        pageRef.current = 1;
+        setHasMore(true);
+        loadPage(1, true, query.trim());
+      }, 500);
+    },
+    [loadPage],
+  );
 
   const selectMod = useCallback(async (id: number) => {
     try {
@@ -101,29 +120,32 @@ export function useGameBanana(): UseGameBananaReturn {
     setSelectedModDetail(null);
   }, []);
 
+  // Initial load and re-load when sort changes
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    currentSearchRef.current = searchQuery.trim();
+    pageRef.current = 1;
+    setHasMore(true);
+    loadPage(1, true, searchQuery.trim());
+  }, [sort]); // Only trigger on sort change, NOT on searchQuery (that's handled by debounce)
 
+  // Cleanup debounce timer
   useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredMods(allMods);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = allMods.filter((mod) => mod.name.toLowerCase().includes(query));
-      setFilteredMods(filtered);
-    }
-  }, [searchQuery, allMods]);
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, []);
 
   return {
-    mods: filteredMods,
+    mods,
     loading,
     loadingMore,
     hasMore,
     error,
     totalCount,
     searchQuery,
-    setSearchQuery,
+    setSearchQuery: handleSearchChange,
     sort,
     setSort,
     loadMore,

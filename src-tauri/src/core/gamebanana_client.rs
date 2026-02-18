@@ -9,11 +9,20 @@ const GAME_ID: &str = "20357"; // Wuthering Waves
 const USER_AGENT: &str = "WuWa-Mod-Manager";
 
 /// GameBanana API에서 모드 목록 가져오기
-pub async fn fetch_mods(page: u32, per_page: u32, sort: &str) -> Result<BrowseResult, String> {
-    let url = format!(
-        "{}/Mod/Index?_aFilters[Generic_Game]={}&_nPage={}&_nPerpage={}&_sSort={}",
-        BASE_URL, GAME_ID, page, per_page, sort
-    );
+pub async fn fetch_mods(page: u32, per_page: u32, sort: &str, search: &str) -> Result<BrowseResult, String> {
+    let url = if search.is_empty() {
+        // 일반 목록 조회
+        format!(
+            "{}/Mod/Index?_aFilters[Generic_Game]={}&_nPage={}&_nPerpage={}&_sSort={}",
+            BASE_URL, GAME_ID, page, per_page, sort
+        )
+    } else {
+        // 검색 조회 - Util/Search/Results 엔드포인트 사용
+        format!(
+            "{}/Util/Search/Results?_sSearchString={}&_nPerpage={}&_nPage={}&_idGameRow={}&_sModelName=Mod",
+            BASE_URL, search.replace(' ', "+"), per_page, page, GAME_ID
+        )
+    };
 
     let client = reqwest::Client::new();
     let response = client
@@ -45,7 +54,12 @@ pub async fn fetch_mods(page: u32, per_page: u32, sort: &str) -> Result<BrowseRe
         .filter_map(|record| parse_mod_record(record))
         .collect();
 
-    let has_more = (page * per_page) < (total_count as u32);
+    let has_more = if search.is_empty() {
+        (page * per_page) < (total_count as u32)
+    } else {
+        // 검색 엔드포인트는 _bIsComplete로 페이지 완료 여부를 알려줌
+        !json["_aMetadata"]["_bIsComplete"].as_bool().unwrap_or(true)
+    };
 
     Ok(BrowseResult {
         mods,
@@ -88,9 +102,9 @@ fn parse_mod_record(record: &Value) -> Option<GameBananaMod> {
         .as_array()
         .and_then(|images| images.first())
         .and_then(|img| {
-            let base = img["_sBaseUrl"].as_str()?;
+            let base = img["_sBaseUrl"].as_str()?.trim_end_matches('/');
             let file = img["_sFile220"].as_str()?;
-            Some(format!("{}{}", base, file))
+            Some(format!("{}/{}", base, file))
         });
 
     let submitter_name = record["_aSubmitter"]["_sName"]
@@ -113,7 +127,9 @@ fn parse_mod_record(record: &Value) -> Option<GameBananaMod> {
     let has_files = record["_bHasFiles"].as_bool().unwrap_or(false);
 
     let date_added = record["_tsDateAdded"].as_u64().unwrap_or(0);
-    let date_updated = record["_tsDateUpdated"].as_u64().unwrap_or(0);
+    let date_updated = record["_tsDateUpdated"].as_u64()
+        .or_else(|| record["_tsDateModified"].as_u64())
+        .unwrap_or(0);
 
     // 태그 추출
     let tags: Vec<String> = record["_aTags"]
@@ -167,12 +183,12 @@ fn parse_mod_detail(mod_id: u64, json: &Value) -> Result<GameBananaModDetail, St
             images
                 .iter()
                 .filter_map(|img| {
-                    let base = img["_sBaseUrl"].as_str()?;
+                    let base = img["_sBaseUrl"].as_str()?.trim_end_matches('/');
                     let file = img["_sFile"].as_str()?;
                     let thumb_file = img["_sFile220"].as_str()?;
                     Some(PreviewImage {
-                        url: format!("{}{}", base, file),
-                        thumb_url: format!("{}{}", base, thumb_file),
+                        url: format!("{}/{}", base, file),
+                        thumb_url: format!("{}/{}", base, thumb_file),
                     })
                 })
                 .collect()

@@ -1,5 +1,6 @@
 import type { GameBananaModDetail, GameBananaFile } from "@/lib/gamebanana-types";
 import { useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 interface BrowseModDetailProps {
   detail: GameBananaModDetail;
@@ -111,6 +112,16 @@ export function BrowseModDetail({
             <span>{detail.viewCount} 조회</span>
           </div>
         </div>
+
+        <button
+          onClick={() => openUrl(`https://gamebanana.com/mods/${detail.id}`)}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-sm text-text-primary transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+          </svg>
+          GameBanana에서 보기
+        </button>
 
         {detail.files.length > 0 && (
           <div>

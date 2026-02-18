@@ -6,8 +6,9 @@ export async function browseMods(
   page: number,
   perPage: number,
   sort: SortOption,
+  search: string = "",
 ): Promise<BrowseResult> {
-  return invoke<BrowseResult>("browse_mods", { page, perPage, sort });
+  return invoke<BrowseResult>("browse_mods", { page, perPage, sort, search });
 }
 
 export async function browseModDetail(modId: number): Promise<GameBananaModDetail> {

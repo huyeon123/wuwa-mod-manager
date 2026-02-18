@@ -4,8 +4,8 @@ use crate::models::gamebanana::{BrowseResult, GameBananaModDetail};
 use crate::models::GameMod;
 
 #[tauri::command]
-pub async fn browse_mods(page: u32, per_page: u32, sort: String) -> Result<BrowseResult, String> {
-    gamebanana_client::fetch_mods(page, per_page, &sort).await
+pub async fn browse_mods(page: u32, per_page: u32, sort: String, search: String) -> Result<BrowseResult, String> {
+    gamebanana_client::fetch_mods(page, per_page, &sort, &search).await
 }
 
 #[tauri::command]
