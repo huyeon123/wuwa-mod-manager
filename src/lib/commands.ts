@@ -105,3 +105,23 @@ export async function cleanupImportTemp(tempDir: string): Promise<void> {
 export async function setAutoLaunchGame(enabled: boolean): Promise<AppConfig> {
   return invoke<AppConfig>("set_auto_launch_game", { enabled });
 }
+
+export async function syncPresets(modsPath: string): Promise<Preset[]> {
+  return invoke<Preset[]>("sync_presets", { modsPath });
+}
+
+export async function setModOrder(characterId: string, modIds: string[]): Promise<AppConfig> {
+  return invoke<AppConfig>("set_mod_order", { characterId, modIds });
+}
+
+export async function runAllFixers(modsPath: string): Promise<string> {
+  return invoke<string>("run_all_fixers", { modsPath });
+}
+
+export async function runStableTextures(modsPath: string): Promise<string> {
+  return invoke<string>("run_stable_textures", { modsPath });
+}
+
+export async function runFixerOnly(modsPath: string): Promise<string> {
+  return invoke<string>("run_fixer_only", { modsPath });
+}

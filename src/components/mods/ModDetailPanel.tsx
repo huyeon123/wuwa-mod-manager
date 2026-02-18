@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { openPath } from "@tauri-apps/plugin-opener";
 import type { Mod } from "@/lib/types";
 
 interface ModDetailPanelProps {
@@ -149,11 +150,22 @@ export function ModDetailPanel({ mod, onToggle, onDelete, isFavorite, onToggleFa
               </div>
             </div>
           )}
-          <div className="flex justify-between">
+          <div className="flex items-center justify-between">
             <span className="text-text-muted">경로</span>
-            <span className="text-text-secondary truncate max-w-[180px]" title={mod.path}>
-              {mod.path.split(/[/\\]/).pop()}
-            </span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-text-secondary truncate max-w-[150px]" title={mod.path}>
+                {mod.path.split(/[/\\]/).pop()}
+              </span>
+              <button
+                onClick={() => openPath(mod.path)}
+                className="flex-shrink-0 text-text-muted hover:text-neon transition-colors"
+                title="폴더 열기"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 

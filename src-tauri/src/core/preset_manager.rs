@@ -42,6 +42,9 @@ pub async fn delete_preset(
         return Err("프리셋을 찾을 수 없습니다".to_string());
     }
 
+    // Remove from active preset IDs
+    config.active_preset_ids.retain(|id| id != preset_id);
+
     config_manager::save_config(&config, app_handle).await?;
     Ok(true)
 }
@@ -52,7 +55,7 @@ pub async fn toggle_preset(
     mods_path: &str,
     app_handle: &tauri::AppHandle,
 ) -> Result<bool, String> {
-    let config = config_manager::load_config(app_handle).await?;
+    let mut config = config_manager::load_config(app_handle).await?;
 
     let preset = config.presets.iter()
         .find(|p| p.id == preset_id)
@@ -70,6 +73,16 @@ pub async fn toggle_preset(
             eprintln!("프리셋 모드 전환 실패 ({}/{}): {}", preset_mod.character_id, preset_mod.mod_id, e);
         }
     }
+
+    // Update active preset IDs
+    if enable {
+        if !config.active_preset_ids.contains(&preset_id.to_string()) {
+            config.active_preset_ids.push(preset_id.to_string());
+        }
+    } else {
+        config.active_preset_ids.retain(|id| id != preset_id);
+    }
+    config_manager::save_config(&config, app_handle).await?;
 
     Ok(true)
 }
@@ -97,4 +110,78 @@ pub async fn update_preset(
     config_manager::save_config(&config, app_handle).await?;
 
     Ok(updated)
+}
+
+/// 특정 모드를 모든 프리셋에서 제거하고, 모드가 0개가 된 프리셋은 삭제
+pub async fn remove_mod_from_presets(
+    character_id: &str,
+    mod_id: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<(), String> {
+    let mut config = config_manager::load_config(app_handle).await?;
+
+    let mut changed = false;
+
+    // 각 프리셋에서 해당 모드 제거
+    for preset in &mut config.presets {
+        let before_len = preset.mods.len();
+        preset.mods.retain(|m| !(m.character_id == character_id && m.mod_id == mod_id));
+        if preset.mods.len() != before_len {
+            changed = true;
+        }
+    }
+
+    // 모드가 0개인 프리셋 삭제 + active_preset_ids에서도 제거
+    let empty_preset_ids: Vec<String> = config.presets.iter()
+        .filter(|p| p.mods.is_empty())
+        .map(|p| p.id.clone())
+        .collect();
+
+    if !empty_preset_ids.is_empty() {
+        config.presets.retain(|p| !p.mods.is_empty());
+        config.active_preset_ids.retain(|id| !empty_preset_ids.contains(id));
+        changed = true;
+    }
+
+    if changed {
+        config_manager::save_config(&config, app_handle).await?;
+    }
+
+    Ok(())
+}
+
+/// 모든 프리셋에서 디스크에 존재하지 않는 모드를 제거하고 정리된 프리셋 목록 반환
+pub async fn sync_presets(
+    mods_path: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<Vec<Preset>, String> {
+    let mut config = config_manager::load_config(app_handle).await?;
+    let mut changed = false;
+
+    // 각 프리셋에서 디스크에 없는 모드 제거
+    for preset in &mut config.presets {
+        let before_len = preset.mods.len();
+        preset.mods.retain(|m| mod_manager::mod_exists(&m.mod_id, &m.character_id, mods_path));
+        if preset.mods.len() != before_len {
+            changed = true;
+        }
+    }
+
+    // 빈 프리셋 삭제
+    let empty_ids: Vec<String> = config.presets.iter()
+        .filter(|p| p.mods.is_empty())
+        .map(|p| p.id.clone())
+        .collect();
+
+    if !empty_ids.is_empty() {
+        config.presets.retain(|p| !p.mods.is_empty());
+        config.active_preset_ids.retain(|id| !empty_ids.contains(id));
+        changed = true;
+    }
+
+    if changed {
+        config_manager::save_config(&config, app_handle).await?;
+    }
+
+    Ok(config.presets)
 }

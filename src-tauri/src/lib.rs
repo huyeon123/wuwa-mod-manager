@@ -28,11 +28,19 @@ pub fn run() {
             commands::config::toggle_favorite_character,
             commands::config::toggle_favorite_mod,
             commands::config::set_auto_launch_game,
+            commands::config::set_mod_order,
             commands::presets::get_presets,
             commands::presets::create_preset,
             commands::presets::delete_preset,
             commands::presets::toggle_preset,
             commands::presets::update_preset,
+            commands::presets::sync_presets,
+            commands::mod_fixer::run_all_fixers,
+            commands::mod_fixer::run_stable_textures,
+            commands::mod_fixer::run_fixer_only,
+            commands::gamebanana::browse_mods,
+            commands::gamebanana::browse_mod_detail,
+            commands::gamebanana::download_and_import_mod,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
