@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getVersion } from "@tauri-apps/api/app";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { AppShell } from "./components/layout/AppShell";
 import { Sidebar } from "./components/layout/Sidebar";
 import type { MenuId } from "./components/layout/Sidebar";
@@ -389,6 +389,15 @@ export function App() {
                 <div className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-text-secondary truncate">
                   {modsPath ?? "설정되지 않음"}
                 </div>
+                {modsPath && (
+                  <button
+                    onClick={() => revealItemInDir(modsPath)}
+                    className="px-4 py-2 rounded-lg bg-white/5 text-text-muted border border-white/10 text-sm font-medium hover:bg-white/10 hover:text-text-primary transition-colors"
+                    title="폴더 열기"
+                  >
+                    열기
+                  </button>
+                )}
                 <button
                   onClick={() => handleAutoDetect("mods")}
                   className="px-4 py-2 rounded-lg bg-white/5 text-text-muted border border-white/10 text-sm font-medium hover:bg-white/10 hover:text-text-primary transition-colors"
@@ -414,6 +423,15 @@ export function App() {
                 <div className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm text-text-secondary truncate">
                   {xxmiLauncherPath ?? "설정되지 않음"}
                 </div>
+                {xxmiLauncherPath && (
+                  <button
+                    onClick={() => revealItemInDir(xxmiLauncherPath)}
+                    className="px-4 py-2 rounded-lg bg-white/5 text-text-muted border border-white/10 text-sm font-medium hover:bg-white/10 hover:text-text-primary transition-colors"
+                    title="폴더 열기"
+                  >
+                    열기
+                  </button>
+                )}
                 <button
                   onClick={() => handleAutoDetect("launcher")}
                   className="px-4 py-2 rounded-lg bg-white/5 text-text-muted border border-white/10 text-sm font-medium hover:bg-white/10 hover:text-text-primary transition-colors"
