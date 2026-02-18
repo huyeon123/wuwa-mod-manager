@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPreset, deletePreset, getPresets, togglePreset, updatePreset } from "../lib/commands";
-import type { Preset, PresetMod } from "../lib/types";
+import type { Preset, PresetMod, AppConfig } from "../lib/types";
 import type { ToastData } from "../components/ui/Toast";
 
 interface UsePresetsParams {
   modsPath: string | null;
   addToast: (type: ToastData["type"], message: string, showReport?: boolean) => void;
   refreshModCounts: (pathOverride?: string | null) => Promise<void>;
+  config: AppConfig | null;
 }
 
-export function usePresets({ modsPath, addToast, refreshModCounts }: UsePresetsParams) {
+export function usePresets({ modsPath, addToast, refreshModCounts, config }: UsePresetsParams) {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [activePresetIds, setActivePresetIds] = useState<string[]>([]);
   const [showPresetModal, setShowPresetModal] = useState(false);
@@ -20,6 +21,12 @@ export function usePresets({ modsPath, addToast, refreshModCounts }: UsePresetsP
       .then(setPresets)
       .catch((err) => console.error("Failed to load presets:", err));
   }, []);
+
+  useEffect(() => {
+    if (config?.activePresetIds) {
+      setActivePresetIds(config.activePresetIds);
+    }
+  }, [config]);
 
   const openCreatePresetModal = useCallback(() => {
     setEditingPreset(null);
@@ -41,14 +48,14 @@ export function usePresets({ modsPath, addToast, refreshModCounts }: UsePresetsP
       if (!modsPath) return;
       try {
         await togglePreset(presetId, enable, modsPath);
-        addToast("success", enable ? "ÇÁ¸®¼ÂÀÌ È°¼ºÈ­µÇ¾ú½À´Ï´Ù" : "ÇÁ¸®¼ÂÀÌ ºñÈ°¼ºÈ­µÇ¾ú½À´Ï´Ù");
+        addToast("success", enable ? "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ È°ï¿½ï¿½È­ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½" : "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È°ï¿½ï¿½È­ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½");
         setActivePresetIds((prev) =>
           enable ? [...prev, presetId] : prev.filter((id) => id !== presetId),
         );
         await refreshModCounts(modsPath);
       } catch (err) {
         console.error("Failed to toggle preset:", err);
-        addToast("error", `ÇÁ¸®¼Â ÀüÈ¯ ½ÇÆÐ: ${err}`, true);
+        addToast("error", `ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È¯ ï¿½ï¿½ï¿½ï¿½: ${err}`, true);
       }
     },
     [modsPath, addToast, refreshModCounts],
@@ -60,10 +67,10 @@ export function usePresets({ modsPath, addToast, refreshModCounts }: UsePresetsP
         await deletePreset(presetId);
         setPresets((prev) => prev.filter((p) => p.id !== presetId));
         setActivePresetIds((prev) => prev.filter((id) => id !== presetId));
-        addToast("success", "ÇÁ¸®¼ÂÀÌ »èÁ¦µÇ¾ú½À´Ï´Ù");
+        addToast("success", "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½");
       } catch (err) {
         console.error("Failed to delete preset:", err);
-        addToast("error", `ÇÁ¸®¼Â »èÁ¦ ½ÇÆÐ: ${err}`, true);
+        addToast("error", `ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½: ${err}`, true);
       }
     },
     [addToast],
@@ -75,10 +82,10 @@ export function usePresets({ modsPath, addToast, refreshModCounts }: UsePresetsP
         const newPreset = await createPreset(name, mods);
         setPresets((prev) => [...prev, newPreset]);
         closePresetModal();
-        addToast("success", `ÇÁ¸®¼Â \"${name}\"ÀÌ(°¡) Ãß°¡µÇ¾ú½À´Ï´Ù`);
+        addToast("success", `ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ \"${name}\"ï¿½ï¿½(ï¿½ï¿½) ï¿½ß°ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½`);
       } catch (err) {
         console.error("Failed to create preset:", err);
-        addToast("error", `ÇÁ¸®¼Â Ãß°¡ ½ÇÆÐ: ${err}`, true);
+        addToast("error", `ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß°ï¿½ ï¿½ï¿½ï¿½ï¿½: ${err}`, true);
       }
     },
     [addToast, closePresetModal],
@@ -91,10 +98,10 @@ export function usePresets({ modsPath, addToast, refreshModCounts }: UsePresetsP
         const updated = await updatePreset(editingPreset.id, name, mods);
         setPresets((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
         closePresetModal();
-        addToast("success", `ÇÁ¸®¼Â \"${name}\"ÀÌ(°¡) ¼öÁ¤µÇ¾ú½À´Ï´Ù`);
+        addToast("success", `ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ \"${name}\"ï¿½ï¿½(ï¿½ï¿½) ï¿½ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½`);
       } catch (err) {
         console.error("Failed to update preset:", err);
-        addToast("error", `ÇÁ¸®¼Â ¼öÁ¤ ½ÇÆÐ: ${err}`, true);
+        addToast("error", `ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½: ${err}`, true);
       }
     },
     [editingPreset, addToast, closePresetModal],

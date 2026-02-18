@@ -42,6 +42,9 @@ pub async fn delete_preset(
         return Err("프리셋을 찾을 수 없습니다".to_string());
     }
 
+    // Remove from active preset IDs
+    config.active_preset_ids.retain(|id| id != preset_id);
+
     config_manager::save_config(&config, app_handle).await?;
     Ok(true)
 }
@@ -52,7 +55,7 @@ pub async fn toggle_preset(
     mods_path: &str,
     app_handle: &tauri::AppHandle,
 ) -> Result<bool, String> {
-    let config = config_manager::load_config(app_handle).await?;
+    let mut config = config_manager::load_config(app_handle).await?;
 
     let preset = config.presets.iter()
         .find(|p| p.id == preset_id)
@@ -70,6 +73,16 @@ pub async fn toggle_preset(
             eprintln!("프리셋 모드 전환 실패 ({}/{}): {}", preset_mod.character_id, preset_mod.mod_id, e);
         }
     }
+
+    // Update active preset IDs
+    if enable {
+        if !config.active_preset_ids.contains(&preset_id.to_string()) {
+            config.active_preset_ids.push(preset_id.to_string());
+        }
+    } else {
+        config.active_preset_ids.retain(|id| id != preset_id);
+    }
+    config_manager::save_config(&config, app_handle).await?;
 
     Ok(true)
 }

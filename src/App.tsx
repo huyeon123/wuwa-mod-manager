@@ -66,7 +66,10 @@ export function App() {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const { updateStatus, updateProgress, updateVersion, checkForUpdates } = useUpdater();
+  const { updateStatus, updateProgress, updateVersion, checkForUpdates } = useUpdater({
+    addToast,
+    autoCheck: true,
+  });
 
   // Load config on startup
   useEffect(() => {
@@ -205,6 +208,7 @@ export function App() {
     modsPath,
     addToast,
     refreshModCounts,
+    config,
   });
 
   // Calculate preset counts
