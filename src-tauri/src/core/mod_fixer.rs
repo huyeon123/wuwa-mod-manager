@@ -15,8 +15,30 @@ struct GitHubAsset {
 
 const GITHUB_API_URL: &str = "https://api.github.com/repos/Moonholder/Wuwa_Mod_Fixer/releases/latest";
 
-pub async fn run_mod_fixer(mods_path: &str) -> Result<String, String> {
-    // 1. GitHub API에서 최신 릴리즈 조회
+/// 다운로드 + StableTextures + Fixer 모두 실행
+pub async fn run_all(mods_path: &str) -> Result<String, String> {
+    let (stable_path, fixer_path, tag) = download_fixers(mods_path).await?;
+    run_exe(&stable_path, mods_path).await?;
+    run_exe(&fixer_path, mods_path).await?;
+    Ok(format!("모드 픽스툴 {} 모두 실행 완료", tag))
+}
+
+/// 다운로드 + StableTextures만 실행
+pub async fn run_stable_textures(mods_path: &str) -> Result<String, String> {
+    let (stable_path, _, tag) = download_fixers(mods_path).await?;
+    run_exe(&stable_path, mods_path).await?;
+    Ok(format!("StableTextures {} 실행 완료", tag))
+}
+
+/// 다운로드 + Fixer만 실행
+pub async fn run_fixer_only(mods_path: &str) -> Result<String, String> {
+    let (_, fixer_path, tag) = download_fixers(mods_path).await?;
+    run_exe(&fixer_path, mods_path).await?;
+    Ok(format!("Mod Fixer {} 실행 완료", tag))
+}
+
+/// GitHub에서 최신 릴리즈의 두 exe를 다운로드하고 경로 반환
+async fn download_fixers(mods_path: &str) -> Result<(PathBuf, PathBuf, String), String> {
     let client = reqwest::Client::builder()
         .user_agent("WuWa-Mod-Manager")
         .build()
@@ -31,7 +53,6 @@ pub async fn run_mod_fixer(mods_path: &str) -> Result<String, String> {
         .await
         .map_err(|e| format!("릴리즈 정보 파싱 실패: {}", e))?;
 
-    // 2. StableTextures.exe와 Wuwa_Mod_Fixer_vX.X.X.exe 찾기
     let stable_textures = release.assets.iter()
         .find(|a| a.name.to_lowercase().contains("stabletextures") && a.name.ends_with(".exe"))
         .ok_or("StableTextures.exe를 찾을 수 없습니다")?;
@@ -40,21 +61,13 @@ pub async fn run_mod_fixer(mods_path: &str) -> Result<String, String> {
         .find(|a| a.name.to_lowercase().starts_with("wuwa_mod_fixer_v") && a.name.ends_with(".exe"))
         .ok_or("Wuwa_Mod_Fixer.exe를 찾을 수 없습니다")?;
 
-    // 3. 모드 폴더 하위에 다운로드
-    let download_dir = PathBuf::from(mods_path).join("mod_fixer");
-    tokio::fs::create_dir_all(&download_dir).await
-        .map_err(|e| format!("다운로드 폴더 생성 실패: {}", e))?;
+    // 모드 폴더 바로 하위에 다운로드
+    let download_dir = PathBuf::from(mods_path);
 
     let stable_path = download_file(&client, &stable_textures.browser_download_url, &download_dir, &stable_textures.name).await?;
     let fixer_path = download_file(&client, &mod_fixer.browser_download_url, &download_dir, &mod_fixer.name).await?;
 
-    // 4. StableTextures.exe 실행 (콘솔 창 표시, 완료까지 대기)
-    run_exe(&stable_path, mods_path).await?;
-
-    // 5. Wuwa_Mod_Fixer.exe 실행 (콘솔 창 표시, 완료까지 대기)
-    run_exe(&fixer_path, mods_path).await?;
-
-    Ok(format!("모드 픽스툴 {} 실행 완료", release.tag_name))
+    Ok((stable_path, fixer_path, release.tag_name))
 }
 
 async fn download_file(client: &reqwest::Client, url: &str, dir: &PathBuf, filename: &str) -> Result<PathBuf, String> {

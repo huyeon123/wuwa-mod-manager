@@ -114,6 +114,14 @@ export async function setModOrder(characterId: string, modIds: string[]): Promis
   return invoke<AppConfig>("set_mod_order", { characterId, modIds });
 }
 
-export async function runModFixer(modsPath: string): Promise<string> {
-  return invoke<string>("run_mod_fixer", { modsPath });
+export async function runAllFixers(modsPath: string): Promise<string> {
+  return invoke<string>("run_all_fixers", { modsPath });
+}
+
+export async function runStableTextures(modsPath: string): Promise<string> {
+  return invoke<string>("run_stable_textures", { modsPath });
+}
+
+export async function runFixerOnly(modsPath: string): Promise<string> {
+  return invoke<string>("run_fixer_only", { modsPath });
 }

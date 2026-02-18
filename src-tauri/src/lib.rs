@@ -35,7 +35,9 @@ pub fn run() {
             commands::presets::toggle_preset,
             commands::presets::update_preset,
             commands::presets::sync_presets,
-            commands::mod_fixer::run_mod_fixer,
+            commands::mod_fixer::run_all_fixers,
+            commands::mod_fixer::run_stable_textures,
+            commands::mod_fixer::run_fixer_only,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
