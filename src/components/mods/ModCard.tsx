@@ -23,8 +23,8 @@ export function ModCard({ mod, isSelected, onSelect, onToggle, isFavorite, onTog
   } = useSortable({ id: mod.id });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: CSS.Translate.toString(transform),
+    transition: isDragging ? undefined : transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 10 : undefined,
   };
