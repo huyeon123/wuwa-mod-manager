@@ -42,7 +42,7 @@ export function ModList({
       const bFav = favoriteModIds.includes(b.id);
       if (aFav && !bFav) return -1;
       if (!aFav && bFav) return 1;
-      return 0;
+      return a.id.localeCompare(b.id, "ko");
     });
   }, [mods, favoriteModIds]);
 
