@@ -113,3 +113,7 @@ export async function syncPresets(modsPath: string): Promise<Preset[]> {
 export async function setModOrder(characterId: string, modIds: string[]): Promise<AppConfig> {
   return invoke<AppConfig>("set_mod_order", { characterId, modIds });
 }
+
+export async function runModFixer(modsPath: string): Promise<string> {
+  return invoke<string>("run_mod_fixer", { modsPath });
+}

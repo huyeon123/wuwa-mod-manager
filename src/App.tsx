@@ -31,6 +31,7 @@ import {
   toggleFavoriteCharacter,
   toggleFavoriteMod,
   setModOrder,
+  runModFixer,
 } from "./lib/commands";
 
 type View = "characters" | "mods";
@@ -52,6 +53,7 @@ export function App() {
   const [favoriteCharacterIds, setFavoriteCharacterIds] = useState<string[]>([]);
   const [favoriteModIds, setFavoriteModIds] = useState<string[]>([]);
   const [config, setConfig] = useState<AppConfig | null>(null);
+  const [fixerRunning, setFixerRunning] = useState(false);
 
   const addToast = useCallback((type: ToastData["type"], message: string, showReport?: boolean) => {
     const id = Date.now().toString();
@@ -368,6 +370,20 @@ export function App() {
     void checkForUpdates();
   }, [checkForUpdates]);
 
+  const handleRunModFixer = useCallback(async () => {
+    if (!modsPath || fixerRunning) return;
+    setFixerRunning(true);
+    try {
+      const result = await runModFixer(modsPath);
+      addToast("success", result);
+    } catch (err) {
+      console.error("Failed to run mod fixer:", err);
+      addToast("error", `픽스툴 실행 실패: ${err}`, true);
+    } finally {
+      setFixerRunning(false);
+    }
+  }, [modsPath, fixerRunning, addToast]);
+
   const renderContent = () => {
     if (activeMenu === "settings") {
       return (
@@ -469,6 +485,19 @@ export function App() {
                       : "translate-x-0 bg-white/40"
                   }`}
                 />
+              </button>
+            </div>
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+              <div>
+                <h3 className="text-sm font-medium text-text-primary">모드 픽스툴</h3>
+                <p className="text-xs text-text-muted mt-0.5">게임 업데이트 후 모드 호환성 자동 수정 (Wuwa Mod Fixer)</p>
+              </div>
+              <button
+                onClick={handleRunModFixer}
+                disabled={!modsPath || fixerRunning}
+                className="px-4 py-2 rounded-lg bg-neon/10 text-neon border border-neon/30 text-sm font-medium hover:bg-neon/20 hover:shadow-[0_0_15px_rgba(53,243,229,0.1)] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {fixerRunning ? "실행 중..." : "실행"}
               </button>
             </div>
             <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
