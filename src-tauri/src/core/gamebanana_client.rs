@@ -19,8 +19,8 @@ pub async fn fetch_mods(page: u32, per_page: u32, sort: &str, search: &str) -> R
     } else {
         // 검색 조회 - Util/Search/Results 엔드포인트 사용
         format!(
-            "{}/Util/Search/Results?_sSearchString={}&_nPerpage={}&_nPage={}&_idGameRow={}&_sModelName=Mod",
-            BASE_URL, search.replace(' ', "+"), per_page, page, GAME_ID
+            "{}/Util/Search/Results?_sSearchString={}&_nPerpage={}&_nPage={}&_idGameRow={}&_sModelName=Mod&_sSort={}",
+            BASE_URL, search.replace(' ', "+"), per_page, page, GAME_ID, sort
         )
     };
 
@@ -49,10 +49,24 @@ pub async fn fetch_mods(page: u32, per_page: u32, sort: &str, search: &str) -> R
         .as_u64()
         .unwrap_or(0);
 
-    let mods: Vec<GameBananaMod> = records
+    let mut mods: Vec<GameBananaMod> = records
         .iter()
         .filter_map(|record| parse_mod_record(record))
         .collect();
+
+    // Search results can ignore sort order. Enforce client-side ordering as a fallback.
+    if !search.is_empty() {
+        match sort {
+            "Generic_LatestUpdated" => mods.sort_by(|a, b| b.date_updated.cmp(&a.date_updated)),
+            "Generic_MostLiked" => mods.sort_by(|a, b| b.like_count.cmp(&a.like_count)),
+            "Generic_MostDownloaded" => mods.sort_by(|a, b| {
+                b.download_count
+                    .cmp(&a.download_count)
+                    .then_with(|| b.view_count.cmp(&a.view_count))
+            }),
+            _ => {}
+        }
+    }
 
     let has_more = if search.is_empty() {
         (page * per_page) < (total_count as u32)
