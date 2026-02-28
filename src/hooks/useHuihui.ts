@@ -18,7 +18,7 @@ interface UseHuihuiReturn {
   clearSelection: () => void;
 }
 
-export function useHuihui(): UseHuihuiReturn {
+export function useHuihui(translateEnabled: boolean): UseHuihuiReturn {
   const [mods, setMods] = useState<HuihuiMod[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -41,7 +41,7 @@ export function useHuihui(): UseHuihuiReturn {
       }
       setError(null);
 
-      const result = await browseHuihuiMods(page, searchTerm);
+      const result = await browseHuihuiMods(page, searchTerm, translateEnabled);
       if (isInitial) {
         setMods(result.mods);
       } else {
@@ -56,7 +56,7 @@ export function useHuihui(): UseHuihuiReturn {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [translateEnabled]);
 
   const refresh = useCallback(async () => {
     pageRef.current = 1;
@@ -88,7 +88,7 @@ export function useHuihui(): UseHuihuiReturn {
   const selectMod = useCallback(async (id: number) => {
     try {
       setDetailLoading(true);
-      const detail = await browseHuihuiModDetail(id);
+      const detail = await browseHuihuiModDetail(id, translateEnabled);
       setSelectedModDetail(detail);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -96,7 +96,7 @@ export function useHuihui(): UseHuihuiReturn {
     } finally {
       setDetailLoading(false);
     }
-  }, []);
+  }, [translateEnabled]);
 
   const clearSelection = useCallback(() => {
     setSelectedModDetail(null);
@@ -105,6 +105,10 @@ export function useHuihui(): UseHuihuiReturn {
   useEffect(() => {
     void loadPage(1, true, "");
   }, [loadPage]);
+
+  useEffect(() => {
+    setSelectedModDetail(null);
+  }, [translateEnabled]);
 
   useEffect(() => {
     return () => {

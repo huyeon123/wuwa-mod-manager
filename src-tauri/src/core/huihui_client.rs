@@ -11,90 +11,43 @@ const BASE_URL: &str = "https://huihui168.org";
 const USER_AGENT: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 const MAX_ITEMS_PER_PAGE: usize = 60;
+const TRANSLATE_MAX_TEXT: usize = 700;
 
 static TRANSLATION_CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
 
-pub async fn fetch_mods(page: u32, search: &str) -> Result<HuihuiBrowseResult, String> {
-    let mut request_url = format!("{}/", BASE_URL);
-    if page > 1 || !search.trim().is_empty() {
-        let mut url = Url::parse(&request_url).map_err(|e| format!("URL build failed: {}", e))?;
-        {
-            let mut qp = url.query_pairs_mut();
-            if page > 1 {
-                qp.append_pair("page", &page.to_string());
-            }
-            if !search.trim().is_empty() {
-                qp.append_pair("keyword", search.trim());
-            }
-        }
-        request_url = url.to_string();
-    }
+type RawListRow = (u64, String, String, Option<String>);
+type ParsedDetail = (
+    String,
+    Option<String>,
+    String,
+    Vec<String>,
+    Vec<HuihuiDownloadLink>,
+);
 
+pub async fn fetch_mods(
+    page: u32,
+    search: &str,
+    translate_enabled: bool,
+) -> Result<HuihuiBrowseResult, String> {
+    let request_url = build_list_url(page, search)?;
     let html = request_html(&request_url).await?;
-    let raw_entries: Vec<(u64, String, String, Option<String>)> = {
-        let document = Html::parse_document(&html);
-        let a_selector = Selector::parse("a[href]").map_err(|e| format!("Selector error: {}", e))?;
-        let img_selector = Selector::parse("img").map_err(|e| format!("Selector error: {}", e))?;
-
-        let mut seen = HashSet::new();
-        let mut rows: Vec<(u64, String, String, Option<String>)> = Vec::new();
-
-        for a in document.select(&a_selector) {
-            let Some(raw_href) = a.value().attr("href") else {
-                continue;
-            };
-            let Some((id, normalized_href)) = parse_wuwa_post_href(raw_href) else {
-                continue;
-            };
-            if !seen.insert(id) {
-                continue;
-            }
-
-            let mut original_name = normalize_text(&a.text().collect::<Vec<_>>().join(" "));
-            if original_name.is_empty() {
-                original_name = a
-                    .value()
-                    .attr("title")
-                    .map(normalize_text)
-                    .unwrap_or_default();
-            }
-            if original_name.is_empty() {
-                if let Some(img) = a.select(&img_selector).next() {
-                    if let Some(alt) = img.value().attr("alt") {
-                        original_name = normalize_text(alt);
-                    }
-                }
-            }
-            if original_name.is_empty() {
-                original_name = format!("Mod {}", id);
-            }
-
-            let thumbnail_url = a
-                .select(&img_selector)
-                .next()
-                .and_then(|img| img.value().attr("src"))
-                .and_then(to_absolute_url);
-
-            rows.push((
-                id,
-                original_name,
-                format!("{}{}", BASE_URL, normalized_href),
-                thumbnail_url,
-            ));
-        }
-
-        rows
-    };
+    let raw_entries = parse_list_html(&html)?;
 
     let mods: Vec<HuihuiMod> = stream::iter(raw_entries.into_iter())
         .map(|(id, original_name, detail_url, thumbnail_url)| async move {
-            let translated = translate_to_korean_cached(&original_name).await;
-            let character_name = detect_character_name(&original_name);
+            let name = if translate_enabled {
+                translate_to_korean_cached(&original_name)
+                    .await
+                    .unwrap_or_else(|| original_name.clone())
+            } else {
+                original_name.clone()
+            };
+
             HuihuiMod {
                 id,
-                name: translated.unwrap_or_else(|| original_name.clone()),
-                original_name,
-                character_name,
+                name,
+                original_name: original_name.clone(),
+                character_name: detect_character_name(&original_name),
                 detail_url,
                 thumbnail_url,
             }
@@ -115,108 +68,26 @@ pub async fn fetch_mods(page: u32, search: &str) -> Result<HuihuiBrowseResult, S
     })
 }
 
-pub async fn fetch_mod_detail(mod_id: u64) -> Result<HuihuiModDetail, String> {
+pub async fn fetch_mod_detail(mod_id: u64, translate_enabled: bool) -> Result<HuihuiModDetail, String> {
     let page_url = format!("{}/?list_11/{}.html", BASE_URL, mod_id);
     let html = request_html(&page_url).await?;
 
-    let (original_name, character_name, article_text, preview_images, mut download_links) = {
-        let document = Html::parse_document(&html);
-        let title_selector = Selector::parse("title").map_err(|e| format!("Selector error: {}", e))?;
-        let article_selector =
-            Selector::parse(".article-content, .content").map_err(|e| format!("Selector error: {}", e))?;
-        let img_selector = Selector::parse("img").map_err(|e| format!("Selector error: {}", e))?;
-        let p_selector = Selector::parse("p, li, div").map_err(|e| format!("Selector error: {}", e))?;
-        let a_selector = Selector::parse("a[href]").map_err(|e| format!("Selector error: {}", e))?;
+    let (original_name, character_name, article_text, preview_images, mut download_links) =
+        parse_detail_html(&html, mod_id)?;
 
-        let raw_title = document
-            .select(&title_selector)
-            .next()
-            .map(|t| normalize_text(&t.text().collect::<Vec<_>>().join(" ")))
-            .unwrap_or_else(|| format!("Mod {}", mod_id));
-
-        let original_name = raw_title
-            .replace("-最近更新-Hui站", "")
-            .replace("- Hui站", "")
-            .trim()
-            .to_string();
-        let character_name = detect_character_name(&original_name);
-
-        let article = document.select(&article_selector).next();
-        let article_text = article
-            .as_ref()
-            .map(|n| normalize_text(&n.text().collect::<Vec<_>>().join(" ")))
-            .unwrap_or_default();
-        let global_password = extract_password(&article_text);
-
-        let preview_images = if let Some(node) = article.as_ref() {
-            node.select(&img_selector)
-                .filter_map(|img| img.value().attr("src"))
-                .filter_map(to_absolute_url)
-                .filter(|url| {
-                    let lower = url.to_lowercase();
-                    lower.contains("/static/upload/")
-                        || lower.ends_with(".jpg")
-                        || lower.ends_with(".jpeg")
-                        || lower.ends_with(".png")
-                        || lower.ends_with(".webp")
-                })
-                .collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        };
-
-        let mut links_map: HashMap<String, HuihuiDownloadLink> = HashMap::new();
-        if let Some(node) = article.as_ref() {
-            for section in node.select(&p_selector) {
-                let section_text = normalize_text(&section.text().collect::<Vec<_>>().join(" "));
-                let section_password = extract_password(&section_text).or_else(|| global_password.clone());
-
-                for a in section.select(&a_selector) {
-                    let Some(raw_href) = a.value().attr("href") else {
-                        continue;
-                    };
-                    let Some(url) = to_absolute_url(raw_href) else {
-                        continue;
-                    };
-
-                    let label_text = normalize_text(&a.text().collect::<Vec<_>>().join(" "));
-                    if !is_download_link(&url, &label_text, &section_text) {
-                        continue;
-                    }
-
-                    let original_label = if label_text.is_empty() {
-                        url.clone()
-                    } else {
-                        label_text
-                    };
-                    links_map.entry(url.clone()).or_insert(HuihuiDownloadLink {
-                        label: original_label.clone(),
-                        original_label,
-                        url,
-                        password: section_password.clone(),
-                    });
-                }
-            }
-        }
-
-        let mut download_links: Vec<HuihuiDownloadLink> = links_map.into_values().collect();
-        download_links.sort_by(|a, b| a.url.cmp(&b.url));
-
-        (
-            original_name,
-            character_name,
-            article_text,
-            preview_images,
-            download_links,
-        )
+    let name = if translate_enabled {
+        translate_to_korean_cached(&original_name)
+            .await
+            .unwrap_or_else(|| original_name.clone())
+    } else {
+        original_name.clone()
     };
 
-    let name = translate_to_korean_cached(&original_name)
-        .await
-        .unwrap_or_else(|| original_name.clone());
-    for link in &mut download_links {
-        if let Some(translated) = translate_to_korean_cached(&link.original_label).await {
-            link.label = translated;
+    if translate_enabled {
+        for link in &mut download_links {
+            if let Some(translated) = translate_to_korean_cached(&link.original_label).await {
+                link.label = translated;
+            }
         }
     }
 
@@ -224,11 +95,11 @@ pub async fn fetch_mod_detail(mod_id: u64) -> Result<HuihuiModDetail, String> {
         None
     } else {
         let base: String = article_text.chars().take(450).collect();
-        Some(
-            translate_to_korean_cached(&base)
-                .await
-                .unwrap_or(base),
-        )
+        if translate_enabled {
+            Some(translate_to_korean_cached(&base).await.unwrap_or(base))
+        } else {
+            Some(base)
+        }
     };
 
     Ok(HuihuiModDetail {
@@ -241,6 +112,171 @@ pub async fn fetch_mod_detail(mod_id: u64) -> Result<HuihuiModDetail, String> {
         download_links,
         description,
     })
+}
+
+fn build_list_url(page: u32, search: &str) -> Result<String, String> {
+    let mut request_url = format!("{}/", BASE_URL);
+    if page > 1 || !search.trim().is_empty() {
+        let mut url = Url::parse(&request_url).map_err(|e| format!("URL build failed: {}", e))?;
+        {
+            let mut qp = url.query_pairs_mut();
+            if page > 1 {
+                qp.append_pair("page", &page.to_string());
+            }
+            if !search.trim().is_empty() {
+                qp.append_pair("keyword", search.trim());
+            }
+        }
+        request_url = url.to_string();
+    }
+    Ok(request_url)
+}
+
+fn parse_list_html(html: &str) -> Result<Vec<RawListRow>, String> {
+    let document = Html::parse_document(html);
+    let a_selector = Selector::parse("a[href]").map_err(|e| format!("Selector error: {}", e))?;
+    let img_selector = Selector::parse("img").map_err(|e| format!("Selector error: {}", e))?;
+
+    let mut seen = HashSet::new();
+    let mut rows: Vec<RawListRow> = Vec::new();
+
+    for a in document.select(&a_selector) {
+        let Some(raw_href) = a.value().attr("href") else {
+            continue;
+        };
+        let Some((id, normalized_href)) = parse_wuwa_post_href(raw_href) else {
+            continue;
+        };
+        if !seen.insert(id) {
+            continue;
+        }
+
+        let mut original_name = normalize_text(&a.text().collect::<Vec<_>>().join(" "));
+        if original_name.is_empty() {
+            original_name = a
+                .value()
+                .attr("title")
+                .map(normalize_text)
+                .unwrap_or_default();
+        }
+        if original_name.is_empty() {
+            if let Some(img) = a.select(&img_selector).next() {
+                if let Some(alt) = img.value().attr("alt") {
+                    original_name = normalize_text(alt);
+                }
+            }
+        }
+        if original_name.is_empty() {
+            original_name = format!("Mod {}", id);
+        }
+
+        let thumbnail_url = a
+            .select(&img_selector)
+            .next()
+            .and_then(|img| img.value().attr("src"))
+            .and_then(to_absolute_url);
+
+        rows.push((
+            id,
+            original_name,
+            format!("{}{}", BASE_URL, normalized_href),
+            thumbnail_url,
+        ));
+    }
+
+    Ok(rows)
+}
+
+fn parse_detail_html(html: &str, mod_id: u64) -> Result<ParsedDetail, String> {
+    let document = Html::parse_document(html);
+    let title_selector = Selector::parse("title").map_err(|e| format!("Selector error: {}", e))?;
+    let article_selector =
+        Selector::parse(".article-content, .content").map_err(|e| format!("Selector error: {}", e))?;
+    let img_selector = Selector::parse("img").map_err(|e| format!("Selector error: {}", e))?;
+    let p_selector = Selector::parse("p, li, div").map_err(|e| format!("Selector error: {}", e))?;
+    let a_selector = Selector::parse("a[href]").map_err(|e| format!("Selector error: {}", e))?;
+
+    let raw_title = document
+        .select(&title_selector)
+        .next()
+        .map(|t| normalize_text(&t.text().collect::<Vec<_>>().join(" ")))
+        .unwrap_or_else(|| format!("Mod {}", mod_id));
+
+    let original_name = raw_title
+        .replace("-最近更新-Hui站", "")
+        .replace("- Hui站", "")
+        .trim()
+        .to_string();
+    let character_name = detect_character_name(&original_name);
+
+    let article = document.select(&article_selector).next();
+    let article_text = article
+        .as_ref()
+        .map(|n| normalize_text(&n.text().collect::<Vec<_>>().join(" ")))
+        .unwrap_or_default();
+    let global_password = extract_password(&article_text);
+
+    let preview_images = if let Some(node) = article.as_ref() {
+        node.select(&img_selector)
+            .filter_map(|img| img.value().attr("src"))
+            .filter_map(to_absolute_url)
+            .filter(|url| {
+                let lower = url.to_lowercase();
+                lower.contains("/static/upload/")
+                    || lower.ends_with(".jpg")
+                    || lower.ends_with(".jpeg")
+                    || lower.ends_with(".png")
+                    || lower.ends_with(".webp")
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+
+    let mut links_map: HashMap<String, HuihuiDownloadLink> = HashMap::new();
+    if let Some(node) = article.as_ref() {
+        for section in node.select(&p_selector) {
+            let section_text = normalize_text(&section.text().collect::<Vec<_>>().join(" "));
+            let section_password = extract_password(&section_text).or_else(|| global_password.clone());
+
+            for a in section.select(&a_selector) {
+                let Some(raw_href) = a.value().attr("href") else {
+                    continue;
+                };
+                let Some(url) = to_absolute_url(raw_href) else {
+                    continue;
+                };
+
+                let label_text = normalize_text(&a.text().collect::<Vec<_>>().join(" "));
+                if !is_download_link(&url, &label_text, &section_text) {
+                    continue;
+                }
+
+                let original_label = if label_text.is_empty() {
+                    url.clone()
+                } else {
+                    label_text
+                };
+                links_map.entry(url.clone()).or_insert(HuihuiDownloadLink {
+                    label: original_label.clone(),
+                    original_label,
+                    url,
+                    password: section_password.clone(),
+                });
+            }
+        }
+    }
+
+    let mut download_links: Vec<HuihuiDownloadLink> = links_map.into_values().collect();
+    download_links.sort_by(|a, b| a.url.cmp(&b.url));
+
+    Ok((
+        original_name,
+        character_name,
+        article_text,
+        preview_images,
+        download_links,
+    ))
 }
 
 async fn request_html(url: &str) -> Result<String, String> {
@@ -318,7 +354,7 @@ async fn translate_to_korean_cached(text: &str) -> Option<String> {
 }
 
 async fn translate_to_korean(text: &str) -> Result<String, String> {
-    let source: String = text.chars().take(700).collect();
+    let source: String = text.chars().take(TRANSLATE_MAX_TEXT).collect();
     let url = Url::parse_with_params(
         "https://translate.googleapis.com/translate_a/single",
         &[
@@ -404,51 +440,43 @@ fn to_absolute_url(raw: &str) -> Option<String> {
 }
 
 fn contains_cjk(text: &str) -> bool {
-    text.chars()
-        .any(|c| ('\u{4E00}'..='\u{9FFF}').contains(&c) || ('\u{3400}'..='\u{4DBF}').contains(&c))
+    text.chars().any(|c| {
+        ('\u{4E00}'..='\u{9FFF}').contains(&c)
+            || ('\u{3400}'..='\u{4DBF}').contains(&c)
+            || ('\u{F900}'..='\u{FAFF}').contains(&c)
+    })
 }
 
 fn detect_character_name(title: &str) -> Option<String> {
-    // Chinese keywords mapped to Korean labels.
-    let map: [(&str, &str); 38] = [
-        ("长离", "장리"),
-        ("今汐", "금희"),
-        ("卡提希娅", "카티시아"),
-        ("吟霖", "음림"),
-        ("安可", "앙코"),
-        ("守岸人", "수안인"),
-        ("菲比", "피비"),
-        ("椿", "춘"),
-        ("丹瑾", "단근"),
-        ("桃祈", "도기"),
-        ("鉴心", "감심"),
-        ("散华", "산화"),
-        ("白芷", "백지"),
-        ("秧秧", "양양"),
-        ("莫特斐", "모테피"),
-        ("洛可可", "로코코"),
-        ("折枝", "절지"),
-        ("炽霞", "치샤"),
-        ("珂莱塔", "콜레타"),
-        ("维里奈", "벨리나"),
-        ("灯灯", "등등"),
-        ("嘉贝莉娜", "가브리엘라"),
-        ("露帕", "루파"),
-        ("尤诺", "유노"),
-        ("爱弥斯", "에이미스"),
-        ("卜灵", "부링"),
-        ("琳奈", "린나"),
-        ("千咲", "치사키"),
-        ("鸣潮", "명조"),
-        ("Rover", "로버"),
-        ("로버", "로버"),
-        ("장리", "장리"),
-        ("금희", "금희"),
-        ("음림", "음림"),
-        ("산화", "산화"),
-        ("양양", "양양"),
-        ("백지", "백지"),
-        ("도기", "도기"),
+    let map: [(&str, &str); 28] = [
+        ("\u{957f}\u{79bb}", "\u{c7a5}\u{b9ac}"),
+        ("\u{4eca}\u{6c50}", "\u{ae08}\u{d76c}"),
+        ("\u{5361}\u{63d0}\u{5e0c}\u{5a05}", "\u{ce74}\u{d2f0}\u{c2dc}\u{c544}"),
+        ("\u{541f}\u{9716}", "\u{c74c}\u{b9bc}"),
+        ("\u{5b89}\u{53ef}", "\u{c559}\u{cf54}"),
+        ("\u{5b88}\u{5cb8}\u{4eba}", "\u{c218}\u{c548}\u{c778}"),
+        ("\u{83f2}\u{6bd4}", "\u{d53c}\u{be44}"),
+        ("\u{6907}", "\u{cd98}"),
+        ("\u{4e39}\u{747e}", "\u{b2e8}\u{adfc}"),
+        ("\u{6843}\u{7948}", "\u{b3c4}\u{ae30}"),
+        ("\u{9274}\u{5fc3}", "\u{ac10}\u{c2ec}"),
+        ("\u{6563}\u{534e}", "\u{c0b0}\u{d654}"),
+        ("\u{767d}\u{829d}", "\u{bc31}\u{c9c0}"),
+        ("\u{79e7}\u{79e7}", "\u{c591}\u{c591}"),
+        ("\u{83ab}\u{7279}\u{83f2}", "\u{baa8}\u{d14c}\u{d53c}"),
+        ("\u{6d1b}\u{53ef}\u{53ef}", "\u{b85c}\u{cf54}\u{cf54}"),
+        ("\u{6298}\u{679d}", "\u{c808}\u{c9c0}"),
+        ("\u{70bd}\u{971e}", "\u{ce58}\u{c0e4}"),
+        ("\u{73c2}\u{83b1}\u{5854}", "\u{cf5c}\u{b808}\u{d0c0}"),
+        ("\u{7ef4}\u{91cc}\u{5948}", "\u{bca8}\u{b9ac}\u{b098}"),
+        ("\u{706f}\u{706f}", "\u{b4f1}\u{b4f1}"),
+        ("\u{5609}\u{8d1d}\u{8389}\u{5a1c}", "\u{ac00}\u{be0c}\u{b9ac}\u{c5d8}\u{b77c}"),
+        ("\u{9732}\u{5e15}", "\u{b8e8}\u{d30c}"),
+        ("\u{5c24}\u{8bfa}", "\u{c720}\u{b178}"),
+        ("\u{7231}\u{5f25}\u{65af}", "\u{c5d0}\u{c774}\u{bbf8}\u{c2a4}"),
+        ("\u{5361}\u{5361}\u{7f57}", "\u{ce74}\u{ce74}\u{b85c}"),
+        ("\u{9e23}\u{6f6e}", "\u{ba85}\u{c870}"),
+        ("Rover", "\u{b85c}\u{bc84}"),
     ];
 
     for (keyword, label) in map {
@@ -500,24 +528,24 @@ fn is_download_link(url: &str, label: &str, context: &str) -> bool {
         return true;
     }
 
-    label_lower.contains("다운로드")
-        || label.contains("下载")
-        || context.contains("下载")
-        || context.contains("解压密码")
+    label_lower.contains("download")
+        || label.contains("\u{4e0b}\u{8f7d}")
+        || context.contains("\u{4e0b}\u{8f7d}")
+        || context.contains("\u{89e3}\u{538b}\u{5bc6}\u{7801}")
         || context_lower.contains("password")
 }
 
 fn extract_password(text: &str) -> Option<String> {
     let patterns = [
-        "解压密码",
-        "解壓密碼",
-        "提取码",
-        "提取碼",
-        "비밀번호",
-        "암호",
+        "\u{89e3}\u{538b}\u{5bc6}\u{7801}",
+        "\u{89e3}\u{58d3}\u{5bc6}\u{78bc}",
+        "\u{63d0}\u{53d6}\u{7801}",
+        "\u{63d0}\u{53d6}\u{78bc}",
+        "\u{be44}\u{bc00}\u{bc88}\u{d638}",
+        "\u{c554}\u{d638}",
         "password",
-        "密码",
-        "密碼",
+        "\u{5bc6}\u{7801}",
+        "\u{5bc6}\u{78bc}",
         "code",
     ];
 
@@ -529,7 +557,7 @@ fn extract_password(text: &str) -> Option<String> {
                 .trim_start_matches(|c: char| c == ':' || c == '：' || c.is_whitespace())
                 .chars()
                 .take_while(|c| {
-                    !c.is_whitespace() && *c != '）' && *c != ')' && *c != '，' && *c != ','
+                    !c.is_whitespace() && *c != ')' && *c != '）' && *c != ',' && *c != '，'
                 })
                 .collect::<String>()
                 .trim()
