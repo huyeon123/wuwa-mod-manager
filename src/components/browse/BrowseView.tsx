@@ -45,6 +45,11 @@ export function BrowseView({
     clearSelection,
   } = useGameBanana();
 
+  const [source, setSource] = useState<BrowseSource>("gamebanana");
+  const [huihuiTranslateEnabled, setHuihuiTranslateEnabled] = useState(false);
+  const [huihuiCharacterFilter, setHuihuiCharacterFilter] = useState<string>("all");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   const {
     mods: huihuiMods,
     loading: huihuiLoading,
@@ -59,7 +64,7 @@ export function BrowseView({
     detailLoading: huihuiDetailLoading,
     selectMod: selectHuihuiMod,
     clearSelection: clearHuihuiSelection,
-  } = useHuihui();
+  } = useHuihui(huihuiTranslateEnabled);
 
   const {
     isDownloading,
@@ -77,10 +82,6 @@ export function BrowseView({
       refreshModCounts();
     },
   });
-
-  const [source, setSource] = useState<BrowseSource>("gamebanana");
-  const [huihuiCharacterFilter, setHuihuiCharacterFilter] = useState<string>("all");
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const huihuiCharacterOptions = useMemo(() => {
     const set = new Set<string>();
@@ -154,7 +155,7 @@ export function BrowseView({
   useEffect(() => {
     if (source !== "huihui") return;
     setHuihuiCharacterFilter("all");
-  }, [huihuiSearchQuery, source]);
+  }, [huihuiSearchQuery, huihuiTranslateEnabled, source]);
 
   return (
     <>
@@ -227,7 +228,7 @@ export function BrowseView({
                   />
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <label className="text-xs text-text-muted">캐릭터</label>
                   <select
                     value={huihuiCharacterFilter}
@@ -240,6 +241,17 @@ export function BrowseView({
                       </option>
                     ))}
                   </select>
+                  <button
+                    type="button"
+                    onClick={() => setHuihuiTranslateEnabled((prev) => !prev)}
+                    className={`px-2.5 py-1.5 rounded-md border text-xs transition-colors ${
+                      huihuiTranslateEnabled
+                        ? "border-neon/40 bg-neon/10 text-neon"
+                        : "border-white/10 bg-white/5 text-text-muted hover:text-text-primary hover:bg-white/10"
+                    }`}
+                  >
+                    번역 {huihuiTranslateEnabled ? "ON" : "OFF"}
+                  </button>
                 </div>
               </div>
             )}
