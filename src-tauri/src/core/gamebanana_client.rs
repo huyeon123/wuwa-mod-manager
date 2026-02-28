@@ -122,6 +122,7 @@ fn parse_mod_record(record: &Value) -> Option<GameBananaMod> {
         .to_string();
 
     let like_count = record["_nLikeCount"].as_u64().unwrap_or(0);
+    let download_count = record["_nDownloadCount"].as_u64().unwrap_or(0);
     let view_count = record["_nViewCount"].as_u64().unwrap_or(0);
 
     let has_files = record["_bHasFiles"].as_bool().unwrap_or(false);
@@ -150,6 +151,7 @@ fn parse_mod_record(record: &Value) -> Option<GameBananaMod> {
         submitter_avatar,
         category,
         like_count,
+        download_count,
         view_count,
         date_added,
         date_updated,

@@ -15,6 +15,7 @@ export interface GameBananaMod {
   submitterAvatar: string | null;
   category: string;
   likeCount: number;
+  downloadCount: number;
   viewCount: number;
   dateAdded: number;
   dateUpdated: number;
