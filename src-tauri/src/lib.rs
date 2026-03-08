@@ -41,6 +41,8 @@ pub fn run() {
             commands::gamebanana::browse_mods,
             commands::gamebanana::browse_mod_detail,
             commands::gamebanana::download_and_import_mod,
+            commands::huihui::browse_huihui_mods,
+            commands::huihui::browse_huihui_mod_detail,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
