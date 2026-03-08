@@ -11,8 +11,8 @@ export function HuihuiModDetail({ detail, onClose }: HuihuiModDetailProps) {
   const [selectedPreview, setSelectedPreview] = useState(0);
 
   return (
-    <aside className="w-80 border-l border-border bg-panel overflow-y-auto flex-shrink-0">
-      <div className="sticky top-0 bg-panel border-b border-border p-4 flex items-center justify-between z-10">
+    <aside className="w-80 border-l border-border bg-panel flex-shrink-0 flex flex-col overflow-hidden">
+      <div className="bg-panel border-b border-border p-4 flex items-center justify-between relative z-20">
         <h2 className="text-sm font-semibold text-text-primary">HuiHui 모드 정보</h2>
         <button
           onClick={onClose}
@@ -24,7 +24,7 @@ export function HuihuiModDetail({ detail, onClose }: HuihuiModDetailProps) {
         </button>
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4">
         {detail.previewImages.length > 0 && detail.previewImages[selectedPreview] && (
           <div className="space-y-2">
             <div className="aspect-[4/3] bg-background-card rounded-lg overflow-hidden">
@@ -73,7 +73,9 @@ export function HuihuiModDetail({ detail, onClose }: HuihuiModDetailProps) {
         {detail.description && (
           <div>
             <h4 className="text-xs font-semibold text-text-primary mb-2">본문 요약</h4>
-            <p className="text-xs text-text-muted leading-relaxed">{detail.description}</p>
+            <p className="text-xs text-text-muted leading-relaxed break-words whitespace-pre-wrap">
+              {detail.description}
+            </p>
           </div>
         )}
 
