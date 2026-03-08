@@ -62,8 +62,10 @@ pub async fn fetch_mods(
         mods.truncate(MAX_ITEMS_PER_PAGE);
     }
 
+    let has_more = has_next_page(&html, page);
+
     Ok(HuihuiBrowseResult {
-        has_more: mods.len() >= 30,
+        has_more,
         mods,
     })
 }
@@ -185,6 +187,53 @@ fn parse_list_html(html: &str) -> Result<Vec<RawListRow>, String> {
     }
 
     Ok(rows)
+}
+
+fn has_next_page(html: &str, current_page: u32) -> bool {
+    let document = Html::parse_document(html);
+    let Ok(a_selector) = Selector::parse("a[href]") else {
+        return false;
+    };
+
+    for a in document.select(&a_selector) {
+        let Some(raw_href) = a.value().attr("href") else {
+            continue;
+        };
+        if parse_wuwa_post_href(raw_href).is_some() {
+            continue;
+        }
+        if let Some(page) = extract_page_param(raw_href) {
+            if page > current_page {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn extract_page_param(raw_href: &str) -> Option<u32> {
+    if let Ok(base) = Url::parse(BASE_URL) {
+        if let Ok(url) = base.join(raw_href) {
+            for (k, v) in url.query_pairs() {
+                if k == "page" {
+                    if let Ok(n) = v.parse::<u32>() {
+                        return Some(n);
+                    }
+                }
+            }
+        }
+    }
+
+    let idx = raw_href.find("page=")?;
+    let page_text = &raw_href[(idx + 5)..];
+    let digits: String = page_text
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
+    if digits.is_empty() {
+        return None;
+    }
+    digits.parse::<u32>().ok()
 }
 
 fn parse_detail_html(html: &str, mod_id: u64) -> Result<ParsedDetail, String> {
