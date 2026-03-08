@@ -21,6 +21,7 @@ pub struct GameBananaMod {
     pub submitter_avatar: Option<String>,
     pub category: String,
     pub like_count: u64,
+    pub download_count: u64,
     pub view_count: u64,
     pub date_added: u64,
     pub date_updated: u64,
